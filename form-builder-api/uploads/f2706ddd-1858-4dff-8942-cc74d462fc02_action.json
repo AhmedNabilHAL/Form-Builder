@@ -1,0 +1,167 @@
+[
+	{
+		"typeCode" : "action",
+		"itemCode" : "reserve_references",
+		"value" : "Risk Structure"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "confirm_bind_in_pas",
+		"value" : "Policy Admin"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "front_sheet",
+		"value" : "Front Sheet"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "document_creation",
+		"value" : "Quote Document Creation"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "br_document_creation",
+		"value" : "Binder Document Creation"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "manual_sanctions_check",
+		"value" : "UA Checklist"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "clash_check",
+		"value" : "Duplicate check"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "sov",
+		"value" : "SOV"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "risk_assessment",
+		"value" : "Risk Assessment"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "dua_team_data_entry",
+		"value" : "Coverholder Details"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "dua_team_checklist",
+		"value" : "DUA Team Check"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "dua_ch_status",
+		"value" : "Entity Status"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "dua_br_status",
+		"value" : "Broker Status"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "dua_mga_status",
+		"value" : "MGA Status"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "dua_compliance_action",
+		"value" : "Compliance"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "dua_contract_data_capture",
+		"value" : "Contract Data"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "dua_section_assignment",
+		"value" : "Assign"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "asset_mapping_review",
+		"value" : "Asset Mapping Review"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "bordereau_data_cleanse",
+		"value" : "Bordereau Data Cleanse"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "bordereau_review",
+		"value" : "Review"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "bordereau_cleanse",
+		"value" : "Cleanse"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "bordereau_map",
+		"value" : "Map"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "additional_coverholders",
+		"value" : "Additional Entities"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "dua_validation_rules",
+		"value" : "Validation Rules"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "claims_team_check",
+		"value" : "Claims Team Check"
+	},
+	{
+		"typeCode": "action",
+		"itemCode": "decs_generation",
+		"value": "Bordereau Generation"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "credit_control_check",
+		"value" : "Credit Control Check"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "financial_review_questionnaire",
+		"value" : "Financial Review Questionnaire"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "contract_structure",
+		"value" : "Letter of Authority Definition"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "multi_policy_validation_rules",
+		"value" : "Multi Policy Validation Rules"
+	},
+	{
+		"typeCode" : "action",
+		"itemCode" : "psp",
+		"value" : "PSP"
+	},
+	{
+		"typeCode": "action",
+		"itemCode": "complete_dec",
+		"value": "Complete Dec"
+	},
+	{
+		"typeCode": "action",
+		"itemCode": "dua_approved_underwriters",
+		"value": "Key Staff"
+	}
+]

@@ -1,0 +1,72 @@
+[
+	{
+		"typeCode" : "subdivision",
+		"itemCode" : "LO",
+		"value" : "London",
+		"additionalProperties" : {
+			"division" : "LON",
+			"producingOfficeCode" : "LON-LONDON"
+		}
+	},
+	{
+		"typeCode" : "subdivision",
+		"itemCode" : "EU",
+		"value" : "Europe",
+		"additionalProperties" : {
+			"division" : "EUR",
+			"producingOfficeCode" : "EUR-EUROPE"
+		}
+	},
+	{
+		"typeCode" : "subdivision",
+		"itemCode" : "BE",
+		"value" : "Bermuda",
+		"additionalProperties" : {
+			"division" : "BER",
+			"producingOfficeCode" : "BER-BERMUDA"
+		}
+	},
+	{
+		"typeCode" : "subdivision",
+		"itemCode" : "CS",
+		"value" : "Casablanca",
+		"additionalProperties" : {
+			"division" : "BER",
+			"producingOfficeCode" : "CAS-CASABLANCA"
+		}
+	},
+	{
+		"typeCode" : "subdivision",
+		"itemCode" : "DU",
+		"value" : "Dubai",
+		"additionalProperties" : {
+			"division" : "BER",
+			"producingOfficeCode" : "DUB-DUBAI"
+		}
+	},
+	{
+		"typeCode" : "subdivision",
+		"itemCode" : "JD",
+		"value" : "Jordan",
+		"additionalProperties" : {
+			"division" : "BER"
+		}
+	},
+	{
+		"typeCode" : "subdivision",
+		"itemCode" : "LA",
+		"value" : "Labuan",
+		"additionalProperties" : {
+			"division" : "BER",
+			"producingOfficeCode" : "LAB-LABUAN"
+		}
+	},
+	{
+		"typeCode" : "subdivision",
+		"itemCode" : "TK",
+		"value" : "Takaful",
+		"additionalProperties" : {
+			"division" : "BER"
+		}
+	}
+]
