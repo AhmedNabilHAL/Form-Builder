@@ -4,8 +4,8 @@ A full-stack form builder application that allows users to create forms, publish
 
 This repository contains both:
 
-- **Frontend**: React + Vite + TypeScript + Material UI + React Hook Form + TanStack Query
-- **Backend**: Spring Boot + MongoDB + MapStruct
+- **form-builder-frontend**: React + Vite + TypeScript + Material UI + React Hook Form + TanStack Query
+- **form-builder-api**: Spring Boot + MongoDB + MapStruct
 
 The application is structured to support:
 
@@ -23,5 +23,5 @@ The application is structured to support:
 
 ```text
 .
-├── frontend/   # React + Vite application
-└── backend/    # Spring Boot API
+├── form-builder-frontend/   # React + Vite application
+└── form-builder-api/    # Spring Boot API
