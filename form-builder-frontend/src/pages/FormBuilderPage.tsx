@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -15,6 +15,10 @@ import type { Form } from "../types/Form";
 import type { FormElement } from "../types/FormInput";
 import { FormBuilderToolbar } from "../components/formBuilder/FormBuilderToolbar";
 import { FormElementBuilder } from "../components/formBuilder/FormElementBuilder";
+import { ChatPanel } from "../components/formBuilder/chat/ChatPanel";
+import { ChatToggleButton } from "../components/formBuilder/chat/ChatToggleButton";
+import { useChatPanel } from "../hooks/useChatPanel";
+import { useFormChatAdapter } from "../hooks/useFormChatAdapter";
 import {
   getFormByIdApi,
   publishFormApi,
@@ -49,7 +53,7 @@ export const FormBuilderPage = () => {
     enabled: isEditMode,
   });
 
-  const { control, handleSubmit, watch, reset } = useForm<Form>({
+  const { control, handleSubmit, watch, reset, getValues } = useForm<Form>({
     defaultValues: emptyForm,
     mode: "onSubmit",
   });
@@ -57,6 +61,23 @@ export const FormBuilderPage = () => {
   const { fields, append } = useFieldArray({
     control,
     name: "elements",
+  });
+
+  const chatPanel = useChatPanel();
+
+  const getCurrentForm = useCallback(() => getValues(), [getValues]);
+
+  const handleFormGenerated = useCallback(
+    (generatedForm: Form) => {
+      reset(generatedForm);
+      setActiveElementId(generatedForm.elements[0]?.id ?? null);
+    },
+    [reset]
+  );
+
+  const chatAdapter = useFormChatAdapter({
+    getCurrentForm,
+    onFormGenerated: handleFormGenerated,
   });
 
   useEffect(() => {
@@ -203,6 +224,14 @@ export const FormBuilderPage = () => {
       ))}
 
       <FormBuilderToolbar onAddElement={handleAddElement} />
+
+      <ChatToggleButton onClick={chatPanel.open} hidden={chatPanel.isOpen} />
+
+      <ChatPanel
+        open={chatPanel.isOpen}
+        onClose={chatPanel.close}
+        adapter={chatAdapter}
+      />
 
       <Box
         sx={{

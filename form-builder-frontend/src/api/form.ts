@@ -32,7 +32,7 @@ const parseErrorMessage = async (response: Response): Promise<string> => {
   }
 };
 
-const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
+export const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const headers = new Headers(init?.headers);
 
   if (init?.body && !headers.has("Content-Type")) {

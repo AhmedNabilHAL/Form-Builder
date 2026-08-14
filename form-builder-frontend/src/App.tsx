@@ -5,7 +5,7 @@ import { FormBuilderPage } from "./pages/FormBuilderPage";
 import { PublicFormPage } from "./pages/PublicFormPage";
 import { SubmissionsPage } from "./pages/SubmissionsPage";
 import { LandingPage } from "./pages/LandingPage";
-import { AppLayout } from "./components/layout/Applayout";
+import { AppLayout } from "./components/layout/AppLayout";
 
 const App = () => {
   return (
