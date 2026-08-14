@@ -54,6 +54,18 @@ public class GlobalExceptionHandler {
                                                 "message", ex.getMessage()));
         }
 
+        @ExceptionHandler(AgentException.class)
+        public org.springframework.http.ResponseEntity<Map<String, Object>> handleAgent(
+                        AgentException ex) {
+                log.error(ex.getMessage(), ex);
+                return org.springframework.http.ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                                .body(Map.of(
+                                                "timestamp", Instant.now().toString(),
+                                                "status", 502,
+                                                "error", "Bad Gateway",
+                                                "message", ex.getMessage()));
+        }
+
         private String formatFieldError(FieldError error) {
                 String detail = error.getDefaultMessage() == null ? "is invalid" : error.getDefaultMessage();
                 return error.getField() + " " + detail;

@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 /**
  * Wires the Gemini integration. The SDK client is created eagerly at startup so
@@ -21,7 +22,6 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties(GeminiProperties.class)
 @Slf4j
 public class GeminiConfig {
-
 
   @Bean
   public Client geminiClient(GeminiProperties properties) {
@@ -53,9 +53,12 @@ public class GeminiConfig {
   /**
    * The request configuration pins output to the Form JSON schema and disables
    * model "thinking" to conserve free-tier tokens. It is immutable and thread
-   * safe, so a single instance is shared across all generate calls.
+   * safe, so a single instance is shared across all generate calls. Marked
+   * primary so it remains the default {@link GenerateContentConfig} injected by
+   * the form-generation client, alongside the agent's own config bean.
    */
   @Bean
+  @Primary
   public GenerateContentConfig geminiGenerateContentConfig(GeminiProperties properties,
       FormResponseSchema formResponseSchema) {
     return GenerateContentConfig.builder()
