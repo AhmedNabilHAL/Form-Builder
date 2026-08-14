@@ -1,0 +1,22 @@
+# Keep the Cloud Build / Docker build context small and reproducible.
+# Only pom.xml and src are needed by the Dockerfile build stage.
+target/
+uploads/
+*.log
+
+# Local/IDE and VCS noise
+.git/
+.gitignore
+.vscode/
+.idea/
+*.iml
+
+# Docs and local-only compose (not needed in the image)
+HELP.md
+README.md
+docker-compose.yml
+
+# Maven wrapper is unused (build stage uses the maven base image)
+.mvn/
+mvnw
+mvnw.cmd
