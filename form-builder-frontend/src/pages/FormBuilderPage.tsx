@@ -15,9 +15,15 @@ import type { Form } from "../types/Form";
 import type { FormElement } from "../types/FormInput";
 import { FormBuilderToolbar } from "../components/formBuilder/FormBuilderToolbar";
 import { FormElementBuilder } from "../components/formBuilder/FormElementBuilder";
+import { createPortal } from "react-dom";
+
 import { ChatPanel } from "../components/formBuilder/chat/ChatPanel";
+import {
+  clearSessionId,
+  sessionKeyForForm,
+} from "../components/formBuilder/chat/chatSessionStore";
 import { ChatToggleButton } from "../components/formBuilder/chat/ChatToggleButton";
-import { useChatPanel } from "../hooks/useChatPanel";
+import { useChatDock } from "../components/layout/useChatDock";
 import { useFormChatAdapter } from "../hooks/useFormChatAdapter";
 import {
   getFormByIdApi,
@@ -35,6 +41,7 @@ const emptyForm: Form = {
 
 export const FormBuilderPage = () => {
   const [activeElementId, setActiveElementId] = useState<string | null>(null);
+  const [chatResetKey, setChatResetKey] = useState(0);
 
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -63,7 +70,13 @@ export const FormBuilderPage = () => {
     name: "elements",
   });
 
-  const chatPanel = useChatPanel();
+  const dock = useChatDock();
+  const closeDock = dock.close;
+
+  // Close the dock when leaving the builder so it never lingers on other pages.
+  useEffect(() => () => closeDock(), [closeDock]);
+
+  const sessionKey = sessionKeyForForm(id);
 
   const getCurrentForm = useCallback(() => getValues(), [getValues]);
 
@@ -78,7 +91,15 @@ export const FormBuilderPage = () => {
   const chatAdapter = useFormChatAdapter({
     getCurrentForm,
     onFormGenerated: handleFormGenerated,
+    sessionKey,
+    resetKey: chatResetKey,
   });
+
+  const handleResetChat = useCallback(() => {
+    clearSessionId(sessionKey);
+    queryClient.removeQueries({ queryKey: ["chat-history"] });
+    setChatResetKey((key) => key + 1);
+  }, [sessionKey, queryClient]);
 
   useEffect(() => {
     if (fetchedForm) {
@@ -137,15 +158,7 @@ export const FormBuilderPage = () => {
 
   if (isEditMode && isFormLoading) {
     return (
-      <Box
-        sx={{
-          maxWidth: 900,
-          mx: "auto",
-          p: 4,
-          display: "flex",
-          justifyContent: "center",
-        }}
-      >
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <CircularProgress />
       </Box>
     );
@@ -153,7 +166,7 @@ export const FormBuilderPage = () => {
 
   if (isEditMode && (isFormError || !fetchedForm)) {
     return (
-      <Box sx={{ maxWidth: 900, mx: "auto", p: 4 }}>
+      <Box sx={{ width: "100%" }}>
         <Card sx={{ p: 4 }}>
           <Typography variant="h6" color="error.main" gutterBottom>
             Failed to load form
@@ -172,7 +185,7 @@ export const FormBuilderPage = () => {
     <Box
       component="form"
       onSubmit={handleSubmit(onSubmit)}
-      sx={{ position: "relative", p: 4, maxWidth: 1200, mx: "auto", width: "100%" }}
+      sx={{ position: "relative", width: "100%" }}
     >
       <Card
         sx={{
@@ -223,15 +236,26 @@ export const FormBuilderPage = () => {
         />
       ))}
 
-      <FormBuilderToolbar onAddElement={handleAddElement} />
-
-      <ChatToggleButton onClick={chatPanel.open} hidden={chatPanel.isOpen} />
-
-      <ChatPanel
-        open={chatPanel.isOpen}
-        onClose={chatPanel.close}
-        adapter={chatAdapter}
+      <FormBuilderToolbar
+        onAddElement={handleAddElement}
+        rightOffset={dock.isOpen ? dock.width + 32 : 32}
+        chatOpen={dock.isOpen}
       />
+
+      <ChatToggleButton onClick={dock.open} hidden={dock.isOpen} />
+
+      {dock.isOpen && dock.portalNode
+        ? createPortal(
+          <ChatPanel
+            key={chatResetKey}
+            onClose={dock.close}
+            onReset={handleResetChat}
+            adapter={chatAdapter}
+            sessionKey={sessionKey}
+          />,
+          dock.portalNode
+        )
+        : null}
 
       <Box
         sx={{

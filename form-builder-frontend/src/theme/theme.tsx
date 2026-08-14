@@ -14,7 +14,10 @@ export const theme = createTheme({
     },
 
     secondary: {
-      main: "#5f6368",
+      main: "#0f9d94",
+      light: "#3fb8b0",
+      dark: "#0b756e",
+      contrastText: "#ffffff",
     },
 
     background: {
@@ -116,6 +119,20 @@ export const theme = createTheme({
           boxShadow: "0 1px 2px rgba(32,33,36,0.08)",
           backgroundImage: "none",
           transition: "transform 0.15s ease, box-shadow 0.15s ease",
+          "&:hover": {
+            boxShadow: "0 4px 18px rgba(103,58,183,0.10)",
+          },
+        },
+      },
+    },
+
+    MuiFab: {
+      styleOverrides: {
+        root: {
+          boxShadow: "0 6px 18px rgba(32,33,36,0.18)",
+          "&:hover": {
+            boxShadow: "0 8px 22px rgba(32,33,36,0.24)",
+          },
         },
       },
     },

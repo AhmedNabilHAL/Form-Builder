@@ -58,7 +58,7 @@ export const PublicFormPage = () => {
 
   if (isFormLoading) {
     return (
-      <Box sx={{ maxWidth: 800, mx: "auto", p: 4, display: "flex", justifyContent: "center" }}>
+      <Box sx={{ maxWidth: 860, mx: "auto", display: "flex", justifyContent: "center" }}>
         <CircularProgress />
       </Box>
     );
@@ -66,7 +66,7 @@ export const PublicFormPage = () => {
 
   if (isFormError || !form) {
     return (
-      <Box sx={{ maxWidth: 800, mx: "auto", p: 4 }}>
+      <Box sx={{ maxWidth: 860, mx: "auto" }}>
         <Card sx={{ p: 4 }}>
           <Typography variant="h6" color="error.main" gutterBottom>
             Failed to load form
@@ -80,7 +80,7 @@ export const PublicFormPage = () => {
   }
 
   return (
-    <Box sx={{ maxWidth: 800, mx: "auto", p: 4 }}>
+    <Box sx={{ maxWidth: 860, mx: "auto" }}>
       <Card sx={{ p: 4 }}>
         <Typography variant="h4" gutterBottom>
           {form.title}

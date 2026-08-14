@@ -32,15 +32,7 @@ export const SubmissionsPage = () => {
 
   if (isFormLoading || isSubmissionsLoading) {
     return (
-      <Box
-        sx={{
-          maxWidth: 900,
-          mx: "auto",
-          p: 4,
-          display: "flex",
-          justifyContent: "center",
-        }}
-      >
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <CircularProgress />
       </Box>
     );
@@ -48,7 +40,7 @@ export const SubmissionsPage = () => {
 
   if (isFormError || !form) {
     return (
-      <Box sx={{ maxWidth: 900, mx: "auto", p: 4 }}>
+      <Box sx={{ width: "100%" }}>
         <Card sx={{ p: 4 }}>
           <Typography variant="h6" color="error.main" gutterBottom>
             Failed to load form
@@ -65,7 +57,7 @@ export const SubmissionsPage = () => {
 
   if (isSubmissionsError) {
     return (
-      <Box sx={{ maxWidth: 900, mx: "auto", p: 4 }}>
+      <Box sx={{ width: "100%" }}>
         <Card sx={{ p: 4 }}>
           <Typography variant="h6" color="error.main" gutterBottom>
             Failed to load submissions
@@ -81,7 +73,7 @@ export const SubmissionsPage = () => {
   }
 
   return (
-    <Box sx={{ maxWidth: 900, mx: "auto", p: 4 }}>
+    <Box sx={{ width: "100%" }}>
       <Typography variant="h4" gutterBottom>
         {form.title} — Submissions
       </Typography>

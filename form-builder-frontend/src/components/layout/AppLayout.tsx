@@ -1,3 +1,4 @@
+import { useCallback, useMemo, useState } from "react";
 import {
   AppBar,
   Box,
@@ -8,6 +9,10 @@ import {
   Typography,
 } from "@mui/material";
 import { Link as RouterLink, Outlet, useLocation } from "react-router-dom";
+
+import { ChatDock } from "./ChatDock";
+import type { ChatDockContextValue } from "./useChatDock";
+import { useChatPanel } from "../../hooks/useChatPanel";
 
 const Logo = () => {
   return (
@@ -67,6 +72,25 @@ const NavButton = ({
 
 export const AppLayout = () => {
   const location = useLocation();
+  const chat = useChatPanel();
+  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
+
+  const registerPortalNode = useCallback(
+    (node: HTMLElement | null) => setPortalNode(node),
+    []
+  );
+
+  const dockApi: ChatDockContextValue = useMemo(
+    () => ({
+      isOpen: chat.isOpen,
+      open: chat.open,
+      close: chat.close,
+      toggle: chat.toggle,
+      width: chat.width,
+      portalNode,
+    }),
+    [chat.isOpen, chat.open, chat.close, chat.toggle, chat.width, portalNode]
+  );
 
   return (
     <Box
@@ -75,6 +99,10 @@ export const AppLayout = () => {
         display: "flex",
         flexDirection: "column",
         bgcolor: "background.default",
+        pr: chat.isOpen ? { xs: 0, sm: `${chat.width}px` } : 0,
+        transition: chat.isResizing
+          ? "none"
+          : "padding-right 225ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
       <AppBar position="sticky" elevation={0}>
@@ -109,7 +137,17 @@ export const AppLayout = () => {
       </AppBar>
 
       <Box sx={{ flex: 1 }}>
-        <Outlet />
+        <Box
+          sx={{
+            width: "100%",
+            maxWidth: "80rem",
+            mx: "auto",
+            px: { xs: 2, sm: 3, md: 4 },
+            py: { xs: 2, sm: 3 },
+          }}
+        >
+          <Outlet context={dockApi} />
+        </Box>
       </Box>
 
       <Box
@@ -135,28 +173,18 @@ export const AppLayout = () => {
             <Typography variant="body2" color="text.secondary">
               © {new Date().getFullYear()} FormFlow
             </Typography>
-
-            <Stack direction="row" spacing={2}>
-              <Button
-                component={RouterLink}
-                to="/"
-                color="inherit"
-                size="small"
-              >
-                Home
-              </Button>
-              <Button
-                component={RouterLink}
-                to="/forms/new"
-                color="inherit"
-                size="small"
-              >
-                New Form
-              </Button>
-            </Stack>
           </Box>
         </Container>
       </Box>
+
+      <ChatDock
+        open={chat.isOpen}
+        width={chat.width}
+        isResizing={chat.isResizing}
+        onWidthChange={chat.setWidth}
+        onResizingChange={chat.setResizing}
+        registerPortalNode={registerPortalNode}
+      />
     </Box>
   );
 };

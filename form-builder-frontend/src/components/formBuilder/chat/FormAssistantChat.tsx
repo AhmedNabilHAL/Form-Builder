@@ -1,5 +1,17 @@
+import { Box, CircularProgress } from "@mui/material";
+import { useQuery } from "@tanstack/react-query";
 import { ChatBox } from "@mui/x-chat";
-import type { ChatAdapter, ChatMessage, ChatUser } from "@mui/x-chat-headless";
+import type {
+  ChatAdapter,
+  ChatMessage,
+  ChatPartRendererMap,
+  ChatUser,
+} from "@mui/x-chat-headless";
+
+import { getChatHistoryApi } from "../../../api/chat";
+import type { ChatSessionDto } from "../../../types/Chat";
+import { loadSessionId } from "./chatSessionStore";
+import { DataResultPart } from "./DataResultPart";
 
 const CONVERSATION_ID = "form-assistant";
 
@@ -11,34 +23,72 @@ const ASSISTANT_AUTHOR: ChatUser = {
 
 const initialConversations = [{ id: CONVERSATION_ID, title: "Let me help you build a form" }];
 
-const initialMessages: ChatMessage[] = [
-  {
-    id: "welcome",
-    conversationId: CONVERSATION_ID,
-    role: "assistant" as const,
-    status: "sent" as const,
-    author: ASSISTANT_AUTHOR,
-    parts: [
-      {
-        type: "text" as const,
-        text: "Hi! Describe the form you want and I'll build it for you.",
-      },
-    ],
-  },
-];
+const WELCOME_MESSAGE: ChatMessage = {
+  id: "welcome",
+  conversationId: CONVERSATION_ID,
+  role: "assistant",
+  status: "sent",
+  author: ASSISTANT_AUTHOR,
+  parts: [
+    {
+      type: "text",
+      text:
+        "Hi! I can build or refine forms, tell you what forms exist and what " +
+        "they ask about, report on submitted answers, and suggest ideas. What " +
+        "would you like to do?",
+    },
+  ],
+};
+
+// Render DATA replies (the `data-result` part) as MUI cards.
+const partRenderers: ChatPartRendererMap = {
+  "data-result": DataResultPart,
+};
 
 interface FormAssistantChatProps {
   adapter: ChatAdapter;
+  /** Storage key used to locate the persisted session for history restore. */
+  sessionKey: string;
 }
 
 /**
- * Chat surface for the form-building assistant. Rendering/config only — all
- * behaviour comes from the injected {@link ChatAdapter}.
+ * Chat surface for the form-building assistant. On mount it restores any prior
+ * conversation for {@link FormAssistantChatProps.sessionKey} via
+ * GET /api/chat/{sessionId}; runtime behaviour comes from the injected adapter.
  */
-export default function FormAssistantChat({ adapter }: FormAssistantChatProps) {
+export default function FormAssistantChat({ adapter, sessionKey }: FormAssistantChatProps) {
+  const sessionId = loadSessionId(sessionKey);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["chat-history", sessionId],
+    queryFn: () => getChatHistoryApi(sessionId as string),
+    enabled: !!sessionId,
+    retry: false,
+    staleTime: 0,
+  });
+
+  if (sessionId && isLoading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100%",
+        }}
+      >
+        <CircularProgress size={24} />
+      </Box>
+    );
+  }
+
+  const restored = data ? mapHistory(data) : [];
+  const initialMessages = restored.length > 0 ? restored : [WELCOME_MESSAGE];
+
   return (
     <ChatBox
       adapter={adapter}
+      partRenderers={partRenderers}
       initialConversations={initialConversations}
       initialActiveConversationId={CONVERSATION_ID}
       initialMessages={initialMessages}
@@ -52,4 +102,14 @@ export default function FormAssistantChat({ adapter }: FormAssistantChatProps) {
     />
   );
 }
+
+const mapHistory = (session: ChatSessionDto): ChatMessage[] =>
+  session.messages.map((message, index) => ({
+    id: `${session.id}-${index}`,
+    conversationId: CONVERSATION_ID,
+    role: message.role === "assistant" ? "assistant" : "user",
+    status: "sent",
+    author: message.role === "assistant" ? ASSISTANT_AUTHOR : undefined,
+    parts: [{ type: "text", text: message.content }],
+  }));
 

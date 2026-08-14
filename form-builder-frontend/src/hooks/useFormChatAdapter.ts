@@ -12,12 +12,18 @@ import {
  *
  * The adapter is memoized on its callbacks, so pass referentially stable
  * functions (e.g. wrapped in `useCallback`) to avoid recreating it each render.
+ * Bump {@link resetKey} to force a brand-new adapter (and thus a fresh server
+ * session) when starting a new conversation.
  */
 export const useFormChatAdapter = ({
   getCurrentForm,
   onFormGenerated,
-}: FormChatAdapterOptions): ChatAdapter =>
+  sessionKey,
+  resetKey = 0,
+}: FormChatAdapterOptions & { resetKey?: number }): ChatAdapter =>
   useMemo(
-    () => createFormChatAdapter({ getCurrentForm, onFormGenerated }),
-    [getCurrentForm, onFormGenerated]
+    () => createFormChatAdapter({ getCurrentForm, onFormGenerated, sessionKey }),
+    // resetKey intentionally busts the memo so the adapter re-reads the session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [getCurrentForm, onFormGenerated, sessionKey, resetKey]
   );
