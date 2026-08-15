@@ -1,6 +1,8 @@
 # Form Builder Application
 
-A full-stack form builder application that allows users to create forms, publish them, submit responses, and review submissions.
+A full-stack form builder application that allows users to create forms, publish them, submit responses, and review submissions — with an integrated AI chat agent to help build forms and explore existing form data.
+
+**Live demo:** https://form-builder-five-alpha.vercel.app/
 
 This repository contains both:
 
@@ -9,15 +11,37 @@ This repository contains both:
 
 The application is structured to support:
 
-- Creating and editing forms
+- Creating and editing forms via UI or AI chat agent
 - Rendering public forms dynamically
 - Submitting form responses
 - Viewing form submissions
 - File upload support
+- AI chat agent that assists with form creation and can answer questions about forms stored in the database
 - Local development with MongoDB
-- Production-ready deployment preparation with Docker files
+- Production deployment on Google Cloud Run (backend) and Vercel (frontend)
 
 ---
+
+## Deployment
+
+| Service  | Platform          | URL                                          |
+|----------|-------------------|----------------------------------------------|
+| Frontend | Vercel            | https://form-builder-five-alpha.vercel.app/  |
+| Backend  | Google Cloud Run  | Managed via `railway.json` / Cloud Run config |
+
+The backend is containerised with the provided `Dockerfile` and deployed to Google Cloud Run. The frontend is deployed to Vercel and reads `VITE_API_BASE_URL` from the Vercel environment variables to point at the Cloud Run service URL.
+
+---
+
+## AI Chat Agent
+
+The application includes a built-in chat agent powered by a large language model. You can access it from the form builder interface. The agent can:
+
+- **Help you build forms** — describe the form you need in plain language and the agent will generate it for you.
+- **Answer questions about your forms** — ask things like "how many forms do I have?", "show me all published forms", or "what fields does the registration form contain?" and the agent will query the database and respond.
+
+---
+
 ## Running Locally
 
 Follow these steps to run the application on your machine.
