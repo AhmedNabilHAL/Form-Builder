@@ -1,5 +1,16 @@
-import { Box, Chip, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import AttachFileOutlinedIcon from "@mui/icons-material/AttachFileOutlined";
+import {
+  Box,
+  FormControl,
+  FormControlLabel,
+  Radio,
+  RadioGroup,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { useWatch, type Control } from "react-hook-form";
+
 import type { Form } from "../../types/Form";
 
 interface FormElementPreviewProps {
@@ -22,61 +33,67 @@ export const FormElementPreview = ({
     case "text-input":
       return (
         <TextField
-          label={element.title}
+          aria-label={`Preview of ${element.title || "short answer question"}`}
           fullWidth
           disabled
-          placeholder="User answer"
+          placeholder="Short answer"
+          sx={{ maxWidth: 560 }}
         />
       );
 
     case "select-input":
       return (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-          <TextField
-            select
-            label={element.title}
-            fullWidth
-            disabled
-            value=""
-          >
-            <MenuItem value="" disabled>
-              Select an option
-            </MenuItem>
-
-            {element.options.map((opt) => (
-              <MenuItem key={opt.id} value={opt.value}>
-                {opt.value}
-              </MenuItem>
-            ))}
-          </TextField>
-
+        <FormControl disabled sx={{ width: "100%" }}>
           {element.options.length > 0 ? (
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              {element.options.map((opt) => (
-                <Chip
-                  key={opt.id}
-                  label={opt.value || "Untitled option"}
-                  size="medium"
-                  variant="outlined"
+            <RadioGroup aria-label="Multiple choice preview">
+              {element.options.slice(0, 4).map((option, optionIndex) => (
+                <FormControlLabel
+                  key={option.id}
+                  value={option.value}
+                  control={<Radio size="small" />}
+                  label={option.value || `Option ${optionIndex + 1}`}
+                  sx={{
+                    minHeight: 40,
+                    mx: 0,
+                    "& .MuiFormControlLabel-label.Mui-disabled": {
+                      color: "text.secondary",
+                    },
+                  }}
                 />
               ))}
-            </Stack>
+            </RadioGroup>
           ) : (
             <Typography variant="body2" color="text.secondary">
-              No options added yet.
+              Add at least two choices.
             </Typography>
           )}
-        </Box>
+        </FormControl>
       );
 
     case "file-upload":
       return (
-        <Box>
-          <Typography variant="body1">{element.title}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            File upload
-          </Typography>
-        </Box>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{
+            minHeight: 56,
+            px: 2,
+            border: "1px dashed",
+            borderColor: "divider",
+            borderRadius: "10px",
+            color: "text.secondary",
+            bgcolor: "#FAFBFC",
+          }}
+        >
+          <AttachFileOutlinedIcon fontSize="small" />
+          <Box>
+            <Typography variant="body2" fontWeight={600}>
+              Choose a file
+            </Typography>
+            <Typography variant="caption">PNG, JPG, or PDF · Up to 10 MB</Typography>
+          </Box>
+        </Stack>
       );
 
     default:

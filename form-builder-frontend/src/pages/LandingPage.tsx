@@ -1,240 +1,619 @@
+import { useMemo, useRef, useState } from "react";
+import AddIcon from "@mui/icons-material/Add";
+import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
+import OpenInNewOutlinedIcon from "@mui/icons-material/OpenInNewOutlined";
+import SearchIcon from "@mui/icons-material/Search";
+import TableRowsOutlinedIcon from "@mui/icons-material/TableRowsOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import {
+  Alert,
   Box,
   Button,
   Card,
-  CardContent,
-  Chip,
-  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
-  Grid,
+  IconButton,
+  InputAdornment,
+  Menu,
+  MenuItem,
+  Select,
+  Skeleton,
+  Snackbar,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
   Typography,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
-import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 
-import { getFormsApi } from "../api/form";
+import {
+  deleteFormApi,
+  getFormsApi,
+  getSubmissionsByFormIdApi,
+} from "../api/form";
+import type { Form } from "../types/Form";
+import { EmptyState } from "../components/ui/EmptyState";
+import { StatusChip } from "../components/ui/StatusChip";
+
+type SortOption = "title" | "questions" | "responses";
+
+const publicFormUrl = (id: string) =>
+  `${window.location.origin}/forms/${encodeURIComponent(id)}`;
 
 export const LandingPage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortOption>("title");
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [menuForm, setMenuForm] = useState<Form | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Form | null>(null);
+  const [notice, setNotice] = useState("");
+  const keepFormButtonRef = useRef<HTMLButtonElement>(null);
 
-  const {
-    data: forms = [],
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
+  const formsQuery = useQuery({
     queryKey: ["forms"],
     queryFn: getFormsApi,
   });
 
+  const forms = useMemo(() => formsQuery.data ?? [], [formsQuery.data]);
+  const submissionQueries = useQueries({
+    queries: forms.map((form) => ({
+      queryKey: ["form-submissions", form.id, "count"],
+      queryFn: () => getSubmissionsByFormIdApi(form.id),
+      staleTime: 60_000,
+    })),
+  });
+
+  const responseCounts = useMemo(
+    () =>
+      new Map(
+        forms.map((form, index) => [
+          form.id,
+          submissionQueries[index]?.data?.length ?? null,
+        ])
+      ),
+    [forms, submissionQueries]
+  );
+
+  const visibleForms = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    const filtered = forms.filter((form) => {
+      if (!query) return true;
+      return `${form.title} ${form.description}`
+        .toLocaleLowerCase()
+        .includes(query);
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sort === "questions") {
+        return (b.elements?.length ?? 0) - (a.elements?.length ?? 0);
+      }
+      if (sort === "responses") {
+        return (
+          (responseCounts.get(b.id) ?? -1) - (responseCounts.get(a.id) ?? -1)
+        );
+      }
+      return (a.title || "Untitled form").localeCompare(
+        b.title || "Untitled form"
+      );
+    });
+  }, [forms, responseCounts, search, sort]);
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteFormApi,
+    onSuccess: async () => {
+      setNotice("Form deleted.");
+      setDeleteTarget(null);
+      await queryClient.invalidateQueries({ queryKey: ["forms"] });
+    },
+  });
+
+  const openMenu = (event: React.MouseEvent<HTMLElement>, form: Form) => {
+    setMenuAnchor(event.currentTarget);
+    setMenuForm(form);
+  };
+
+  const closeMenu = () => {
+    setMenuAnchor(null);
+    setMenuForm(null);
+  };
+
+  const copyLink = async (form: Form) => {
+    try {
+      await navigator.clipboard.writeText(publicFormUrl(form.id));
+      setNotice("Public link copied.");
+    } catch {
+      setNotice("Copy failed. Open the form and copy the address from your browser.");
+    }
+  };
+
+  const totalResponses = [...responseCounts.values()].reduce<number | null>(
+    (total, value) => (value === null || total === null ? null : total + value),
+    0
+  );
+
   return (
     <Box sx={{ width: "100%" }}>
-      <Card
-        sx={{
-          mb: 4,
-          overflow: "hidden",
-          borderTop: "10px solid",
-          borderTopColor: "primary.main",
-        }}
-      >
-        <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={3}
-            alignItems={{ xs: "flex-start", md: "center" }}
-            justifyContent="space-between"
-          >
-            <Box>
-              <Typography variant="h4" gutterBottom>
-                Form Builder
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Create forms, share public links, and review submissions from one place.
-              </Typography>
-            </Box>
-
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<AddIcon />}
-              onClick={() => navigate("/forms/new")}
-            >
-              Create New Form
-            </Button>
-          </Stack>
-        </CardContent>
-      </Card>
-
       <Stack
-        direction={{ xs: "column", sm: "row" }}
+        direction={{ xs: "column", md: "row" }}
+        alignItems={{ xs: "stretch", md: "center" }}
+        justifyContent="space-between"
         spacing={2}
-        sx={{ mb: 4 }}
+        sx={{ minHeight: 64, mb: 3 }}
       >
-        <Card sx={{ flex: 1 }}>
-          <CardContent>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Total forms
-            </Typography>
-            <Typography variant="h5">{forms.length}</Typography>
-          </CardContent>
-        </Card>
-
-        <Card sx={{ flex: 1 }}>
-          <CardContent>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Quick access
-            </Typography>
-            <Typography variant="body1">
-              Edit, open public form, or view results
-            </Typography>
-          </CardContent>
-        </Card>
+        <Box>
+          <Typography component="h1" variant="h1" tabIndex={-1}>
+            Forms
+          </Typography>
+          <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+            Create, publish, and review your forms.
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          size="large"
+          startIcon={<AddIcon />}
+          onClick={() => navigate("/forms/new")}
+          sx={{ alignSelf: { xs: "stretch", md: "center" }, minHeight: 48 }}
+        >
+          New form
+        </Button>
       </Stack>
 
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h6">Your Forms</Typography>
-      </Box>
-
-      {isLoading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : isError ? (
-        <Card>
-          <CardContent>
-            <Typography variant="h6" color="error.main" gutterBottom>
-              Failed to load forms
-            </Typography>
+      {!formsQuery.isLoading && !formsQuery.isError && forms.length > 0 && (
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          sx={{ mb: 3 }}
+        >
+          <Card sx={{ flex: 1, p: 2.5 }}>
             <Typography variant="body2" color="text.secondary">
-              {error instanceof Error ? error.message : "An unexpected error occurred."}
+              Live forms
             </Typography>
-          </CardContent>
-        </Card>
-      ) : forms.length === 0 ? (
-        <Card>
-          <CardContent sx={{ py: 6, textAlign: "center" }}>
-            <DescriptionOutlinedIcon sx={{ fontSize: 42, color: "text.secondary", mb: 1 }} />
-            <Typography variant="h6" gutterBottom>
-              No forms yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Create your first form to start collecting responses.
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate("/forms/new")}
+            <Typography
+              sx={{
+                mt: 0.5,
+                fontFamily: '"Sora Variable", sans-serif',
+                fontSize: "1.5rem",
+                fontWeight: 650,
+                fontVariantNumeric: "tabular-nums",
+              }}
             >
-              Create New Form
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Grid container spacing={3}>
-          {forms.map((form) => (
-            <Grid size={{ xs: 12, md: 6, lg: 4 }} key={form.id}>
-              <Card
+              {forms.length}
+            </Typography>
+          </Card>
+          <Card sx={{ flex: 1, p: 2.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              Responses
+            </Typography>
+            {totalResponses === null ? (
+              <Skeleton width={52} height={36} />
+            ) : (
+              <Typography
                 sx={{
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  "&:hover": {
-                    transform: "translateY(-2px)",
-                    boxShadow: "0 6px 20px rgba(32,33,36,0.08)",
-                  },
+                  mt: 0.5,
+                  fontFamily: '"Sora Variable", sans-serif',
+                  fontSize: "1.5rem",
+                  fontWeight: 650,
+                  fontVariantNumeric: "tabular-nums",
                 }}
               >
-                <Box
-                  sx={{
-                    height: 10,
-                    backgroundColor: "primary.main",
-                  }}
-                />
+                {totalResponses}
+              </Typography>
+            )}
+          </Card>
+          <Card sx={{ flex: 1, p: 2.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              Questions
+            </Typography>
+            <Typography
+              sx={{
+                mt: 0.5,
+                fontFamily: '"Sora Variable", sans-serif',
+                fontSize: "1.5rem",
+                fontWeight: 650,
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {forms.reduce((sum, form) => sum + (form.elements?.length ?? 0), 0)}
+            </Typography>
+          </Card>
+        </Stack>
+      )}
 
-                <CardContent
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 2,
-                    flexGrow: 1,
-                  }}
-                >
-                  <Box>
-                    <Typography variant="h6" sx={{ mb: 1 }}>
-                      {form.title || "Untitled form"}
-                    </Typography>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        spacing={1.5}
+        alignItems={{ xs: "stretch", md: "center" }}
+        justifyContent="space-between"
+        sx={{
+          position: { xs: "sticky", md: "static" },
+          top: { xs: 56, md: "auto" },
+          zIndex: { xs: 2, md: "auto" },
+          py: 1.5,
+          mb: 1,
+          bgcolor: "background.default",
+        }}
+      >
+        <TextField
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search forms"
+          aria-label="Search forms"
+          sx={{ width: { xs: "100%", md: 360, xl: 420 } }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography
+            component="label"
+            htmlFor="sort-forms"
+            variant="body2"
+            color="text.secondary"
+            sx={{ whiteSpace: "nowrap" }}
+          >
+            Sort by
+          </Typography>
+          <Select
+            native
+            id="sort-forms"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as SortOption)}
+            inputProps={{ "aria-label": "Sort forms" }}
+            sx={{ minWidth: 168 }}
+          >
+            <option value="title">Title</option>
+            <option value="questions">Most questions</option>
+            <option value="responses">Most responses</option>
+          </Select>
+        </Stack>
+      </Stack>
 
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{
-                        minHeight: 42,
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                      }}
+      {formsQuery.isLoading ? (
+        <DashboardSkeleton />
+      ) : formsQuery.isError ? (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" onClick={() => formsQuery.refetch()}>
+              Retry
+            </Button>
+          }
+          sx={{ mt: 2 }}
+        >
+          <Typography component="div" fontWeight={700}>
+            Forms could not be loaded
+          </Typography>
+          Check your connection and try again.
+        </Alert>
+      ) : forms.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={<TableRowsOutlinedIcon />}
+            title="No forms yet"
+            description="Create your first form to start collecting responses."
+            actions={
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate("/forms/new")}
+              >
+                Create form
+              </Button>
+            }
+          />
+        </Card>
+      ) : visibleForms.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={<SearchIcon />}
+            title="No forms match your search"
+            description="Try a different title or clear the search."
+            actions={
+              <Button variant="outlined" onClick={() => setSearch("")}>
+                Clear search
+              </Button>
+            }
+          />
+        </Card>
+      ) : (
+        <>
+          <TableContainer
+            component={Card}
+            sx={{ display: { xs: "none", md: "block" }, overflow: "hidden" }}
+          >
+            <Table aria-label="Forms">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Form</TableCell>
+                  <TableCell sx={{ width: 116 }}>Status</TableCell>
+                  <TableCell align="right" sx={{ width: 112 }}>
+                    Questions
+                  </TableCell>
+                  <TableCell align="right" sx={{ width: 120 }}>
+                    Responses
+                  </TableCell>
+                  <TableCell align="center" sx={{ width: 64 }}>
+                    <span className="sr-only">Actions</span>
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {visibleForms.map((form) => (
+                  <TableRow
+                    key={form.id}
+                    hover
+                    sx={{ "&:last-child td": { borderBottom: 0 } }}
+                  >
+                    <TableCell>
+                      <Box
+                        component={RouterLink}
+                        to={`/forms/${form.id}/edit`}
+                        sx={{
+                          display: "block",
+                          textDecoration: "none",
+                          color: "inherit",
+                          maxWidth: 620,
+                          borderRadius: 1,
+                          "&:focus-visible": {
+                            outline: "3px solid",
+                            outlineColor: "primary.main",
+                            outlineOffset: 2,
+                          },
+                        }}
+                      >
+                        <Typography fontWeight={700} noWrap>
+                          {form.title || "Untitled form"}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          noWrap
+                          sx={{ mt: 0.25 }}
+                        >
+                          {form.description || "No description"}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <StatusChip status="Live" />
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{ fontVariantNumeric: "tabular-nums" }}
                     >
-                      {form.description || "No description provided."}
-                    </Typography>
-                  </Box>
-
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    <Chip
-                      size="small"
-                      label={`${form.elements?.length ?? 0} field${(form.elements?.length ?? 0) === 1 ? "" : "s"
+                      {form.elements?.length ?? 0}
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{ fontVariantNumeric: "tabular-nums" }}
+                    >
+                      {responseCounts.get(form.id) ?? "—"}
+                    </TableCell>
+                    <TableCell align="center">
+                      <IconButton
+                        aria-label={`More actions for ${
+                          form.title || "Untitled form"
                         }`}
-                    />
+                        onClick={(event) => openMenu(event, form)}
+                      >
+                        <MoreHorizIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          <Stack spacing={1.5} sx={{ display: { xs: "flex", md: "none" } }}>
+            {visibleForms.map((form) => (
+              <Card key={form.id} sx={{ p: 2 }}>
+                <Stack spacing={1.5}>
+                  <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography
+                        component={RouterLink}
+                        to={`/forms/${form.id}/edit`}
+                        fontWeight={700}
+                        sx={{
+                          display: "block",
+                          color: "text.primary",
+                          textDecoration: "none",
+                          overflowWrap: "anywhere",
+                          "&:focus-visible": {
+                            outline: "3px solid",
+                            outlineColor: "primary.main",
+                            outlineOffset: 2,
+                          },
+                        }}
+                      >
+                        {form.title || "Untitled form"}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        {responseCounts.get(form.id) ?? "—"} responses ·{" "}
+                        {form.elements?.length ?? 0} questions
+                      </Typography>
+                    </Box>
+                    <StatusChip status="Live" />
                   </Stack>
-
                   <Divider />
-
-                  <Stack spacing={1.25}>
-                    <Button
-                      component={RouterLink}
-                      to={`/forms/${form.id}`}
-                      variant="outlined"
-                      startIcon={<VisibilityOutlinedIcon />}
-                      fullWidth
-                    >
-                      Open Public Form
-                    </Button>
-
+                  <Stack direction="row" justifyContent="space-between" spacing={1}>
                     <Button
                       component={RouterLink}
                       to={`/forms/${form.id}/edit`}
                       variant="outlined"
                       startIcon={<EditOutlinedIcon />}
-                      fullWidth
+                      sx={{ flex: 1 }}
                     >
-                      Edit Form
+                      Edit form
                     </Button>
-
-                    <Button
-                      component={RouterLink}
-                      to={`/forms/${form.id}/results`}
-                      variant="outlined"
-                      startIcon={<BarChartOutlinedIcon />}
-                      fullWidth
+                    <IconButton
+                      aria-label={`More actions for ${
+                        form.title || "Untitled form"
+                      }`}
+                      onClick={(event) => openMenu(event, form)}
                     >
-                      View Submissions
-                    </Button>
+                      <MoreHorizIcon />
+                    </IconButton>
                   </Stack>
-                </CardContent>
+                </Stack>
               </Card>
-            </Grid>
-          ))}
-        </Grid>
+            ))}
+          </Stack>
+        </>
       )}
+
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor && menuForm)}
+        onClose={closeMenu}
+        slotProps={{ paper: { sx: { minWidth: 220 } } }}
+      >
+        <MenuItem
+          onClick={() => {
+            if (menuForm) navigate(`/forms/${menuForm.id}/edit`);
+            closeMenu();
+          }}
+        >
+          <EditOutlinedIcon fontSize="small" sx={{ mr: 1.5 }} />
+          Edit form
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            if (menuForm) window.open(`/forms/${menuForm.id}`, "_blank", "noopener");
+            closeMenu();
+          }}
+        >
+          <OpenInNewOutlinedIcon fontSize="small" sx={{ mr: 1.5 }} />
+          Open form
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            if (menuForm) navigate(`/forms/${menuForm.id}/results`);
+            closeMenu();
+          }}
+        >
+          <VisibilityOutlinedIcon fontSize="small" sx={{ mr: 1.5 }} />
+          View responses
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            if (menuForm) void copyLink(menuForm);
+            closeMenu();
+          }}
+        >
+          <ContentCopyOutlinedIcon fontSize="small" sx={{ mr: 1.5 }} />
+          Copy public link
+        </MenuItem>
+        <Divider />
+        <MenuItem
+          sx={{ color: "error.main" }}
+          onClick={() => {
+            setDeleteTarget(menuForm);
+            closeMenu();
+          }}
+        >
+          <DeleteOutlineIcon fontSize="small" sx={{ mr: 1.5 }} />
+          Delete form
+        </MenuItem>
+      </Menu>
+
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onClose={() => {
+          if (!deleteMutation.isPending) setDeleteTarget(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{
+          transition: {
+            onEntered: () => keepFormButtonRef.current?.focus(),
+          },
+        }}
+      >
+        <DialogTitle>Delete form?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            “{deleteTarget?.title || "Untitled form"}” and its public link will be
+            removed. This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            ref={keepFormButtonRef}
+            autoFocus
+            onClick={() => setDeleteTarget(null)}
+            disabled={deleteMutation.isPending}
+          >
+            Keep form
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={!deleteTarget || deleteMutation.isPending}
+            onClick={() => {
+              if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
+            }}
+          >
+            {deleteMutation.isPending ? "Deleting…" : "Delete form"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={Boolean(notice)}
+        autoHideDuration={5000}
+        onClose={() => setNotice("")}
+        message={notice}
+      />
     </Box>
   );
 };
+
+const DashboardSkeleton = () => (
+  <Card sx={{ overflow: "hidden" }} aria-label="Loading forms">
+    <Stack spacing={0}>
+      {[0, 1, 2, 3, 4, 5].map((row) => (
+        <Stack
+          key={row}
+          direction="row"
+          alignItems="center"
+          spacing={3}
+          sx={{ minHeight: 72, px: 2, borderBottom: "1px solid", borderColor: "divider" }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Skeleton width="45%" />
+            <Skeleton width="68%" />
+          </Box>
+          <Skeleton width={76} height={28} />
+          <Skeleton width={44} />
+          <Skeleton width={44} />
+        </Stack>
+      ))}
+    </Stack>
+  </Card>
+);
 
 export default LandingPage;

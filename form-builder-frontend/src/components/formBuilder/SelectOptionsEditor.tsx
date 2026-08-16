@@ -1,61 +1,135 @@
-import { Box, Button, TextField } from "@mui/material";
-import { Controller, useFieldArray, type Control } from "react-hook-form";
+import AddIcon from "@mui/icons-material/Add";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import {
+  Box,
+  Button,
+  IconButton,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+import { Controller, useFieldArray, useFormContext, useWatch } from "react-hook-form";
+
 import type { Form } from "../../types/Form";
 
 interface SelectOptionsEditorProps {
-  control: Control<Form>;
   index: number;
 }
 
-export const SelectOptionsEditor = ({
-  control,
-  index,
-}: SelectOptionsEditorProps) => {
-  const { fields, append, remove } = useFieldArray({
+export const SelectOptionsEditor = ({ index }: SelectOptionsEditorProps) => {
+  const { control } = useFormContext<Form>();
+  const { fields, append, remove, move } = useFieldArray({
     control,
     name: `elements.${index}.options`,
   });
+  const options =
+    useWatch({ control, name: `elements.${index}.options` }) ?? [];
+
+  const normalized = options
+    .map((option) => option.value.trim().toLocaleLowerCase())
+    .filter(Boolean);
+  const hasDuplicates = normalized.length !== new Set(normalized).size;
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      {fields.map((field, optionIndex) => (
-        <Box
-          key={field.id}
-          sx={{ display: "flex", gap: 1, alignItems: "center" }}
-        >
-          <Controller
-            name={`elements.${index}.options.${optionIndex}.value`}
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                label={`Option ${optionIndex + 1}`}
-                fullWidth
-              />
-            )}
-          />
+    <Box>
+      <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+        <Typography variant="subtitle2">Choices</Typography>
+        <Typography variant="caption" color="text.secondary">
+          At least two
+        </Typography>
+      </Stack>
 
-          <Button
-            type="button"
-            color="error"
-            onClick={() => remove(optionIndex)}
+      <Stack spacing={1} sx={{ mt: 1 }}>
+        {fields.map((field, optionIndex) => (
+          <Stack
+            key={field.id}
+            direction="row"
+            spacing={0.5}
+            alignItems="center"
+            sx={{ minWidth: 0 }}
           >
-            Remove
-          </Button>
-        </Box>
-      ))}
+            <DragIndicatorIcon
+              aria-hidden="true"
+              sx={{ color: "text.disabled", flex: "0 0 auto" }}
+            />
+            <Controller
+              name={`elements.${index}.options.${optionIndex}.value`}
+              control={control}
+              render={({ field: optionField }) => (
+                <TextField
+                  {...optionField}
+                  placeholder={`Option ${optionIndex + 1}`}
+                  inputProps={{
+                    "aria-label": `Choice ${optionIndex + 1}`,
+                  }}
+                  sx={{ flex: 1, minWidth: 0 }}
+                />
+              )}
+            />
+            <Tooltip title="Move choice up">
+              <span>
+                <IconButton
+                  type="button"
+                  size="small"
+                  disabled={optionIndex === 0}
+                  aria-label={`Move choice ${optionIndex + 1} up`}
+                  onClick={() => move(optionIndex, optionIndex - 1)}
+                >
+                  <ArrowUpwardIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Move choice down">
+              <span>
+                <IconButton
+                  type="button"
+                  size="small"
+                  disabled={optionIndex === fields.length - 1}
+                  aria-label={`Move choice ${optionIndex + 1} down`}
+                  onClick={() => move(optionIndex, optionIndex + 1)}
+                >
+                  <ArrowDownwardIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Delete choice">
+              <IconButton
+                type="button"
+                size="small"
+                color="error"
+                aria-label={`Delete choice ${optionIndex + 1}`}
+                onClick={() => remove(optionIndex)}
+              >
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        ))}
+      </Stack>
+
+      {hasDuplicates && (
+        <Typography color="error.main" variant="body2" role="alert" sx={{ mt: 1 }}>
+          Each choice must be unique.
+        </Typography>
+      )}
 
       <Button
         type="button"
         variant="outlined"
+        startIcon={<AddIcon />}
         onClick={() =>
           append({
             id: crypto.randomUUID(),
             value: "",
           })
         }
+        sx={{ mt: 1.5 }}
       >
-        Add Option
+        Add choice
       </Button>
     </Box>
   );

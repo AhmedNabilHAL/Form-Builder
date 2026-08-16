@@ -1,6 +1,9 @@
-import { Box, Chip, Typography } from "@mui/material";
+import AttachFileOutlinedIcon from "@mui/icons-material/AttachFileOutlined";
+import { Box, Card, Chip, Stack, Typography } from "@mui/material";
+
 import type { FormElement } from "../types/FormInput";
 import type { SubmissionValue } from "../types/Submission";
+import { storedFileName } from "../utils/form";
 
 interface SubmissionAnswerRendererProps {
   element: FormElement;
@@ -11,48 +14,47 @@ export const SubmissionAnswerRenderer = ({
   element,
   value,
 }: SubmissionAnswerRendererProps) => {
-  switch (element.type) {
-    case "text-input":
-      return (
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary">
-            {element.title}
-          </Typography>
-          <Typography variant="body1">
-            {typeof value === "string" && value.trim() ? value : "—"}
-          </Typography>
-        </Box>
-      );
+  const answer = typeof value === "string" ? value.trim() : "";
 
-    case "select-input":
-      return (
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary">
-            {element.title}
-          </Typography>
-          {typeof value === "string" && value.trim() ? (
-            <Chip label={value} size="small" />
-          ) : (
-            <Typography variant="body1">—</Typography>
-          )}
-        </Box>
-      );
+  return (
+    <Box>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ display: "block", mb: 0.5 }}
+      >
+        {element.title || "Untitled question"}
+      </Typography>
 
-    case "file-upload":
-      return (
-        <Box>
-          <Typography variant="subtitle2" color="text.secondary">
-            {element.title}
-          </Typography>
-          {value instanceof File ? (
-            <Typography variant="body1">{value.name}</Typography>
-          ) : (
-            <Typography variant="body1">No file uploaded</Typography>
-          )}
-        </Box>
-      );
-
-    default:
-      return null;
-  }
+      {element.type === "file-upload" ? (
+        answer ? (
+          <Card sx={{ p: 1.5, bgcolor: "#FAFBFC" }}>
+            <Stack direction="row" spacing={1.25} alignItems="center">
+              <AttachFileOutlinedIcon color="action" />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography fontWeight={700} noWrap title={storedFileName(answer)}>
+                  {storedFileName(answer)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Download is not available for this attachment.
+                </Typography>
+              </Box>
+            </Stack>
+          </Card>
+        ) : (
+          <Typography color="text.secondary">No file provided</Typography>
+        )
+      ) : element.type === "select-input" && answer ? (
+        <Chip label={answer} size="small" />
+      ) : (
+        <Typography
+          color={answer ? "text.primary" : "text.secondary"}
+          sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+          dir="auto"
+        >
+          {answer || "No answer provided"}
+        </Typography>
+      )}
+    </Box>
+  );
 };

@@ -17,13 +17,13 @@ import {
  */
 export const useFormChatAdapter = ({
   getCurrentForm,
-  onFormGenerated,
+  onFormProposed,
   sessionKey,
   resetKey = 0,
 }: FormChatAdapterOptions & { resetKey?: number }): ChatAdapter =>
   useMemo(
-    () => createFormChatAdapter({ getCurrentForm, onFormGenerated, sessionKey }),
+    () => createFormChatAdapter({ getCurrentForm, onFormProposed, sessionKey }),
     // resetKey intentionally busts the memo so the adapter re-reads the session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getCurrentForm, onFormGenerated, sessionKey, resetKey]
+    [getCurrentForm, onFormProposed, sessionKey, resetKey]
   );

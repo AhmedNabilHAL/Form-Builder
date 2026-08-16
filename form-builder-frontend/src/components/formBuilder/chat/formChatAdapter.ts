@@ -11,8 +11,8 @@ import { loadSessionId, saveSessionId } from "./chatSessionStore";
 export interface FormChatAdapterOptions {
   /** Snapshot of the form currently open in the builder. */
   getCurrentForm: () => Form;
-  /** Called with the generated form so the builder can apply it (FORM replies). */
-  onFormGenerated: (form: Form) => void;
+  /** Called with a generated draft so the builder can preview it before applying. */
+  onFormProposed: (form: Form) => void;
   /** Storage key that scopes the persisted chat session (e.g. per form). */
   sessionKey: string;
 }
@@ -27,7 +27,7 @@ export interface FormChatAdapterOptions {
  */
 export const createFormChatAdapter = ({
   getCurrentForm,
-  onFormGenerated,
+  onFormProposed,
   sessionKey,
 }: FormChatAdapterOptions): ChatAdapter => {
   let sessionId: string | null = loadSessionId(sessionKey);
@@ -53,7 +53,7 @@ export const createFormChatAdapter = ({
       }
 
       if (response.type === "FORM" && response.form) {
-        onFormGenerated(response.form);
+        onFormProposed(response.form);
       }
 
       const data =

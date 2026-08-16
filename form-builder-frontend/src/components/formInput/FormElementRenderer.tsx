@@ -1,12 +1,13 @@
 import type { Control } from 'react-hook-form';
 import type { FormElement } from '../../types/FormInput';
+import type { SubmissionValue } from '../../types/Submission';
 import { FileUploadField } from './FileUploadField';
 import { SelectInputField } from './SelectInputField';
 import { TextInputField } from './TextInputField';
 
 interface Props {
   element: FormElement;
-  control?: Control<any>;
+  control?: Control<Record<string, SubmissionValue>>;
   name: string;
   preview: boolean;
 }

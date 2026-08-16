@@ -21,7 +21,7 @@ const ASSISTANT_AUTHOR: ChatUser = {
   avatarUrl: "/robot.png",
 };
 
-const initialConversations = [{ id: CONVERSATION_ID, title: "Let me help you build a form" }];
+const initialConversations = [{ id: CONVERSATION_ID, title: "Form assistant" }];
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: "welcome",
@@ -33,9 +33,8 @@ const WELCOME_MESSAGE: ChatMessage = {
     {
       type: "text",
       text:
-        "Hi! I can build or refine forms, tell you what forms exist and what " +
-        "they ask about, report on submitted answers, and suggest ideas. What " +
-        "would you like to do?",
+        "I can suggest clearer wording, find missing required fields, or draft " +
+        "questions. I will show proposed changes before anything is applied.",
     },
   ],
 };
@@ -98,7 +97,10 @@ export default function FormAssistantChat({ adapter, sessionKey }: FormAssistant
       getMessageAuthorDisplayName={(message) =>
         message.role === "assistant" ? ASSISTANT_AUTHOR.displayName : undefined
       }
-      sx={{ height: "100%" }}
+      sx={{
+        height: "100%",
+        "& .MuiChatBox-root": { height: "100%" },
+      }}
     />
   );
 }
@@ -112,4 +114,3 @@ const mapHistory = (session: ChatSessionDto): ChatMessage[] =>
     author: message.role === "assistant" ? ASSISTANT_AUTHOR : undefined,
     parts: [{ type: "text", text: message.content }],
   }));
-

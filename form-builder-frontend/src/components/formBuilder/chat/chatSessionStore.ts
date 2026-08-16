@@ -1,7 +1,10 @@
 const KEY_PREFIX = "formchat:session:";
 
-/** Builds the storage key for a form's chat session (uses "new" for unsaved forms). */
-export const sessionKeyForForm = (formId?: string): string => formId?.trim() || "new";
+/** Builds a stable storage key for a saved form or one specific local draft. */
+export const sessionKeyForForm = (
+  formId?: string,
+  draftId?: string
+): string => formId?.trim() || `draft:${draftId || crypto.randomUUID()}`;
 
 /** Reads the persisted session id for a form's chat, if any. */
 export const loadSessionId = (sessionKey: string): string | null => {

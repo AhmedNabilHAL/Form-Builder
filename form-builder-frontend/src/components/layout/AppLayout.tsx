@@ -1,96 +1,34 @@
-import { useCallback, useMemo, useState } from "react";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import AddIcon from "@mui/icons-material/Add";
+import WifiOffOutlinedIcon from "@mui/icons-material/WifiOffOutlined";
 import {
+  Alert,
   AppBar,
   Box,
   Button,
   Container,
+  IconButton,
   Stack,
   Toolbar,
+  Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { Link as RouterLink, Outlet, useLocation } from "react-router-dom";
 
-import { ChatDock } from "./ChatDock";
-import type { ChatDockContextValue } from "./useChatDock";
-import { useChatPanel } from "../../hooks/useChatPanel";
-
-const Logo = () => {
-  return (
-    <Stack direction="row" spacing={1.5} alignItems="center">
-      <Box
-        sx={{
-          width: 36,
-          height: 36,
-          borderRadius: 2,
-          bgcolor: "primary.main",
-          color: "primary.contrastText",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontWeight: 700,
-          fontSize: "1rem",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.12)",
-        }}
-      >
-        F
-      </Box>
-
-      <Box>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.1 }}>
-          FormFlow
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>
-          Form Builder
-        </Typography>
-      </Box>
-    </Stack>
-  );
-};
-
-const NavButton = ({
-  to,
-  label,
-  active,
-}: {
-  to: string;
-  label: string;
-  active?: boolean;
-}) => {
-  return (
-    <Button
-      component={RouterLink}
-      to={to}
-      color={active ? "primary" : "inherit"}
-      sx={{
-        fontWeight: active ? 700 : 500,
-      }}
-    >
-      {label}
-    </Button>
-  );
-};
+import { BrandMark } from "../ui/BrandMark";
+import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 
 export const AppLayout = () => {
   const location = useLocation();
-  const chat = useChatPanel();
-  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
-
-  const registerPortalNode = useCallback(
-    (node: HTMLElement | null) => setPortalNode(node),
-    []
-  );
-
-  const dockApi: ChatDockContextValue = useMemo(
-    () => ({
-      isOpen: chat.isOpen,
-      open: chat.open,
-      close: chat.close,
-      toggle: chat.toggle,
-      width: chat.width,
-      portalNode,
-    }),
-    [chat.isOpen, chat.open, chat.close, chat.toggle, chat.width, portalNode]
-  );
+  const theme = useTheme();
+  const mobile = useMediaQuery(theme.breakpoints.down("md"));
+  const online = useOnlineStatus();
+  const isFormsHome = location.pathname === "/";
+  const isEditorRoute =
+    location.pathname === "/forms/new" ||
+    /^\/forms\/[^/]+\/edit$/.test(location.pathname);
 
   return (
     <Box
@@ -99,92 +37,150 @@ export const AppLayout = () => {
         display: "flex",
         flexDirection: "column",
         bgcolor: "background.default",
-        pr: chat.isOpen ? { xs: 0, sm: `${chat.width}px` } : 0,
-        transition: chat.isResizing
-          ? "none"
-          : "padding-right 225ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
-      <AppBar position="sticky" elevation={0}>
-        <Container maxWidth="xl">
-          <Toolbar sx={{ px: { xs: 0, sm: 1 } }}>
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+
+      <AppBar
+        position="sticky"
+        elevation={0}
+        color="inherit"
+        sx={{
+          height: { xs: 56, md: 64 },
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          bgcolor: "rgba(255, 255, 255, 0.96)",
+          backdropFilter: "blur(12px)",
+          color: "text.primary",
+          zIndex: (muiTheme) => muiTheme.zIndex.appBar + 1,
+        }}
+      >
+        <Container maxWidth={false} sx={{ maxWidth: 1440, height: "100%" }}>
+          <Toolbar disableGutters sx={{ minHeight: "100% !important", gap: 2 }}>
             <Box
               component={RouterLink}
               to="/"
+              aria-label="FormFlow forms"
               sx={{
                 textDecoration: "none",
-                color: "inherit",
-                flexGrow: 1,
+                display: "inline-flex",
+                alignItems: "center",
               }}
             >
-              <Logo />
+              <BrandMark compact={mobile} />
             </Box>
 
-            <Stack direction="row" spacing={1} alignItems="center">
-              <NavButton
+            {!mobile && (
+              <Button
+                component={RouterLink}
                 to="/"
-                label="Home"
-                active={location.pathname === "/"}
-              />
-              <NavButton
-                to="/forms/new"
-                label="Create Form"
-                active={location.pathname === "/forms/new"}
-              />
-            </Stack>
+                color="inherit"
+                sx={{
+                  alignSelf: "stretch",
+                  borderRadius: 0,
+                  borderBottom: "2px solid",
+                  borderBottomColor: isFormsHome ? "primary.main" : "transparent",
+                  px: 1.5,
+                }}
+              >
+                Forms
+              </Button>
+            )}
+
+            <Box sx={{ flex: 1 }} />
+
+            <Tooltip title="Help">
+              <IconButton
+                aria-label="Help"
+                onClick={() =>
+                  window.alert(
+                    "FormFlow help is not connected yet. Use the form labels and inline guidance to complete each task."
+                  )
+                }
+              >
+                <HelpOutlineIcon />
+              </IconButton>
+            </Tooltip>
+
+            <Button
+              component={RouterLink}
+              to="/forms/new"
+              variant="contained"
+              startIcon={!mobile ? <AddIcon /> : undefined}
+              aria-label={mobile ? "Create new form" : undefined}
+              sx={{
+                minWidth: mobile ? 44 : undefined,
+                px: mobile ? 1.25 : 2,
+              }}
+            >
+              {mobile ? <AddIcon /> : "New form"}
+            </Button>
           </Toolbar>
         </Container>
       </AppBar>
 
-      <Box sx={{ flex: 1 }}>
-        <Box
+      {!online && (
+        <Alert
+          icon={<WifiOffOutlinedIcon />}
+          severity="warning"
+          square
+          role="status"
           sx={{
-            width: "100%",
-            maxWidth: "80rem",
-            mx: "auto",
-            px: { xs: 2, sm: 3, md: 4 },
-            py: { xs: 2, sm: 3 },
+            borderRadius: 0,
+            justifyContent: "center",
+            borderBottom: "1px solid",
+            borderColor: "warning.main",
           }}
         >
-          <Outlet context={dockApi} />
-        </Box>
-      </Box>
+          You’re offline. Saved data may be out of date, and changes will remain
+          on this device until you reconnect.
+        </Alert>
+      )}
 
       <Box
-        component="footer"
+        component="main"
+        id="main-content"
         sx={{
-          mt: 6,
-          borderTop: "1px solid",
-          borderColor: "divider",
-          bgcolor: "background.paper",
+          flex: 1,
+          width: "100%",
+          maxWidth: 1440,
+          mx: "auto",
+          px: { xs: 2, sm: 2.5, md: 3, lg: 4 },
+          py: { xs: 3, md: 4 },
         }}
       >
-        <Container maxWidth="xl">
-          <Box
-            sx={{
-              py: 3,
-              display: "flex",
-              flexDirection: { xs: "column", sm: "row" },
-              alignItems: { xs: "flex-start", sm: "center" },
-              justifyContent: "space-between",
-              gap: 1.5,
-            }}
-          >
-            <Typography variant="body2" color="text.secondary">
-              © {new Date().getFullYear()} FormFlow
-            </Typography>
-          </Box>
-        </Container>
+        <Outlet />
       </Box>
 
-      <ChatDock
-        open={chat.isOpen}
-        width={chat.width}
-        isResizing={chat.isResizing}
-        onWidthChange={chat.setWidth}
-        onResizingChange={chat.setResizing}
-        registerPortalNode={registerPortalNode}
-      />
+      {!isEditorRoute && (
+        <Box
+          component="footer"
+          sx={{
+            borderTop: "1px solid",
+            borderColor: "divider",
+            bgcolor: "background.paper",
+          }}
+        >
+          <Container maxWidth={false} sx={{ maxWidth: 1440 }}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              alignItems={{ xs: "flex-start", sm: "center" }}
+              justifyContent="space-between"
+              gap={1}
+              sx={{ py: 2.5 }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                © {new Date().getFullYear()} FormFlow
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Clear forms. Confident responses.
+              </Typography>
+            </Stack>
+          </Container>
+        </Box>
+      )}
     </Box>
   );
 };

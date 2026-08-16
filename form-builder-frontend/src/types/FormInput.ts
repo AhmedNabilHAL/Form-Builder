@@ -1,4 +1,5 @@
 import type { Control } from "react-hook-form";
+import type { SubmissionValue } from "./Submission";
 
 type InputType = 'text-input' | 'select-input' | 'file-upload';
 interface BaseInput {
@@ -30,7 +31,7 @@ type FormElement = TextInput | SelectInput | FileUploadInput;
 
 interface BaseFieldProps {
   name: string;
-  control?: Control<any>;
+  control?: Control<Record<string, SubmissionValue>>;
   label: string;
   required?: boolean;
   disabled?: boolean
