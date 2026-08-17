@@ -210,9 +210,9 @@ export const LandingPage = () => {
         pr: chatDock.isOpen
           ? 0
           : {
-              xs: "56px",
-              md: "64px",
-            },
+            xs: "56px",
+            md: "64px",
+          },
         transition: "padding-right 240ms cubic-bezier(0.2, 0, 0, 1)",
       }}
     >
@@ -537,9 +537,8 @@ export const LandingPage = () => {
                     </TableCell>
                     <TableCell align="center">
                       <IconButton
-                        aria-label={`More actions for ${
-                          form.title || "Untitled form"
-                        }`}
+                        aria-label={`More actions for ${form.title || "Untitled form"
+                          }`}
                         onClick={(event) => openMenu(event, form)}
                       >
                         <MoreHorizIcon />
@@ -594,9 +593,8 @@ export const LandingPage = () => {
                       Edit form
                     </Button>
                     <IconButton
-                      aria-label={`More actions for ${
-                        form.title || "Untitled form"
-                      }`}
+                      aria-label={`More actions for ${form.title || "Untitled form"
+                        }`}
                       onClick={(event) => openMenu(event, form)}
                     >
                       <MoreHorizIcon />
@@ -631,7 +629,7 @@ export const LandingPage = () => {
           }}
         >
           <OpenInNewOutlinedIcon fontSize="small" sx={{ mr: 1.5 }} />
-          Open form
+          View form
         </MenuItem>
         <MenuItem
           onClick={() => {

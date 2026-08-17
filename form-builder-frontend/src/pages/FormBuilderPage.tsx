@@ -270,9 +270,9 @@ export const FormBuilderPage = () => {
           rect.top <= anchorY && rect.bottom >= anchorY
             ? 0
             : Math.min(
-                Math.abs(rect.top - anchorY),
-                Math.abs(rect.bottom - anchorY)
-              );
+              Math.abs(rect.top - anchorY),
+              Math.abs(rect.bottom - anchorY)
+            );
 
         if (distance < bestDistance) {
           bestId = elementId;
@@ -428,21 +428,21 @@ export const FormBuilderPage = () => {
     const duplicate: FormElement =
       source.type === "select-input"
         ? {
-            ...structuredClone(source),
+          ...structuredClone(source),
+          id: crypto.randomUUID(),
+          title: source.title ? `${source.title} copy` : "",
+          sortOrder: index + 1,
+          options: source.options.map((option) => ({
+            ...option,
             id: crypto.randomUUID(),
-            title: source.title ? `${source.title} copy` : "",
-            sortOrder: index + 1,
-            options: source.options.map((option) => ({
-              ...option,
-              id: crypto.randomUUID(),
-            })),
-          }
+          })),
+        }
         : {
-            ...structuredClone(source),
-            id: crypto.randomUUID(),
-            title: source.title ? `${source.title} copy` : "",
-            sortOrder: index + 1,
-          };
+          ...structuredClone(source),
+          id: crypto.randomUUID(),
+          title: source.title ? `${source.title} copy` : "",
+          sortOrder: index + 1,
+        };
 
     insert(index + 1, duplicate);
     openQuestionEditor(duplicate.id);
@@ -631,10 +631,10 @@ export const FormBuilderPage = () => {
           minWidth: 0,
           pb: { xs: "88px", md: 0 },
           "& :is(a, button, input, textarea, select, [tabindex]):not([tabindex='-1'])":
-            {
-              scrollMarginBlockStart: { xs: "132px", md: "96px" },
-              scrollMarginBlockEnd: { xs: "120px", md: "24px" },
-            },
+          {
+            scrollMarginBlockStart: { xs: "132px", md: "96px" },
+            scrollMarginBlockEnd: { xs: "120px", md: "24px" },
+          },
         }}
       >
         <Card
@@ -1327,18 +1327,18 @@ export const FormBuilderPage = () => {
                 mt: 3,
                 "&::before": elements.length
                   ? {
-                      content: '""',
-                      position: "absolute",
-                      zIndex: 0,
-                      display: { xs: "none", sm: "block" },
-                      insetInlineStart: 14,
-                      insetBlockStart: 0,
-                      insetBlockEnd: 38,
-                      width: "1.5px",
-                      borderRadius: 999,
-                      background:
-                        "linear-gradient(to bottom, #CCC8F8 82%, rgba(204,200,248,0))",
-                    }
+                    content: '""',
+                    position: "absolute",
+                    zIndex: 0,
+                    display: { xs: "none", sm: "block" },
+                    insetInlineStart: 14,
+                    insetBlockStart: 0,
+                    insetBlockEnd: 38,
+                    width: "1.5px",
+                    borderRadius: 999,
+                    background:
+                      "linear-gradient(to bottom, #CCC8F8 82%, rgba(204,200,248,0))",
+                  }
                   : undefined,
               }}
             >
@@ -1638,7 +1638,7 @@ export const FormBuilderPage = () => {
                         )
                       }
                     >
-                      Open form
+                      View form
                     </Button>
                   </Stack>
                 </Box>

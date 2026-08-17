@@ -170,8 +170,7 @@ export const SubmissionsPage = () => {
     anchor.remove();
     URL.revokeObjectURL(url);
     setNotice(
-      `Exported ${visibleSubmissions.length} ${
-        visibleSubmissions.length === 1 ? "response" : "responses"
+      `Exported ${visibleSubmissions.length} ${visibleSubmissions.length === 1 ? "response" : "responses"
       }.`
     );
   };
@@ -286,7 +285,7 @@ export const SubmissionsPage = () => {
               window.open(`/forms/${form.id}`, "_blank", "noopener,noreferrer")
             }
           >
-            Open form
+            View form
           </Button>
           <Button
             variant="contained"
@@ -359,7 +358,7 @@ export const SubmissionsPage = () => {
                     )
                   }
                 >
-                  Open form
+                  View form
                 </Button>
               </Stack>
             }
