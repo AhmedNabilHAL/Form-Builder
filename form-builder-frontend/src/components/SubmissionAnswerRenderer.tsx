@@ -1,6 +1,8 @@
 import AttachFileOutlinedIcon from "@mui/icons-material/AttachFileOutlined";
-import { Box, Card, Chip, Stack, Typography } from "@mui/material";
+import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
+import { Box, Button, Card, Chip, Stack, Typography } from "@mui/material";
 
+import { getSubmissionFileUrl } from "../api/form";
 import type { FormElement } from "../types/FormInput";
 import type { SubmissionValue } from "../types/Submission";
 import { storedFileName } from "../utils/form";
@@ -8,13 +10,18 @@ import { storedFileName } from "../utils/form";
 interface SubmissionAnswerRendererProps {
   element: FormElement;
   value: SubmissionValue;
+  formId: string;
+  submissionId: string;
 }
 
 export const SubmissionAnswerRenderer = ({
   element,
   value,
+  formId,
+  submissionId,
 }: SubmissionAnswerRendererProps) => {
   const answer = typeof value === "string" ? value.trim() : "";
+  const fileName = answer ? storedFileName(answer) : "";
 
   return (
     <Box>
@@ -31,14 +38,25 @@ export const SubmissionAnswerRenderer = ({
           <Card sx={{ p: 1.5, bgcolor: "#FAFBFC" }}>
             <Stack direction="row" spacing={1.25} alignItems="center">
               <AttachFileOutlinedIcon color="action" />
-              <Box sx={{ minWidth: 0 }}>
-                <Typography fontWeight={700} noWrap title={storedFileName(answer)}>
-                  {storedFileName(answer)}
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography fontWeight={700} noWrap title={fileName}>
+                  {fileName}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Download is not available for this attachment.
+                  Stored securely with this response
                 </Typography>
               </Box>
+              <Button
+                component="a"
+                href={getSubmissionFileUrl(formId, submissionId, element.id)}
+                variant="outlined"
+                size="small"
+                startIcon={<DownloadOutlinedIcon />}
+                aria-label={`Download ${fileName}`}
+                sx={{ flexShrink: 0 }}
+              >
+                Download
+              </Button>
             </Stack>
           </Card>
         ) : (

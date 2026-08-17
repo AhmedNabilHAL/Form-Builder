@@ -23,7 +23,15 @@ public interface FileStorageService {
    * Loads a previously stored file by its storage key.
    *
    * @param storageKey the key returned by {@link #store(MultipartFile, String)}
+   * @param formId     the owning form id, used to verify that the key is scoped
+   *                   to the requested form
    * @return the file content and metadata
    */
-  StoredFile load(String storageKey);
+  StoredFile load(String storageKey, String formId);
+
+  /**
+   * Deletes a previously stored file. Used to roll back uploads when persisting
+   * the submission fails.
+   */
+  void delete(String storageKey, String formId);
 }

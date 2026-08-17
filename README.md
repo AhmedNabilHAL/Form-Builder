@@ -27,9 +27,33 @@ The application is structured to support:
 | Service  | Platform          | URL                                          |
 |----------|-------------------|----------------------------------------------|
 | Frontend | Vercel            | https://form-builder-five-alpha.vercel.app/  |
-| Backend  | Google Cloud Run  | Managed via `railway.json` / Cloud Run config |
+| Backend  | Google Cloud Run  | Containerized with `form-builder-api/Dockerfile` |
 
 The backend is containerised with the provided `Dockerfile` and deployed to Google Cloud Run. The frontend is deployed to Vercel and reads `VITE_API_BASE_URL` from the Vercel environment variables to point at the Cloud Run service URL.
+
+### Submission file storage
+
+Production uploads are stored in a private Google Cloud Storage bucket instead
+of Cloud Run's ephemeral filesystem. Configure the Cloud Run service with:
+
+- `GCS_BUCKET_NAME`: the target bucket name.
+- `MONGODB_URI`, `GEMINI_API_KEY`, and `CORS_ALLOWED_ORIGINS` as before.
+- A runtime service account that has the **Storage Object User** role on that
+  bucket.
+
+The Docker image activates the `prod` Spring profile automatically. On Cloud
+Run, authentication uses the runtime service account through Application
+Default Credentials, so no service-account key file or
+`GOOGLE_CREDENTIALS_JSON` value is needed.
+
+Keep the bucket private. Attachment downloads are proxied through
+`GET /api/forms/{formId}/submissions/{submissionId}/files/{fieldId}`, which
+checks the form, submission, field type, and object namespace before returning
+the file. Uploads are limited to PNG, JPG, and PDF files up to 10 MB.
+
+Choose the bucket region after reviewing current Google Cloud Storage pricing
+and the latency implications relative to the Cloud Run service in
+`europe-west1`.
 
 ---
 
@@ -99,7 +123,7 @@ mongodb://localhost:27017
 Go to the backend folder:
 
 ```bash
-cd backend
+cd form-builder-api
 ```
 
 Create or verify this file:
@@ -109,7 +133,7 @@ Create or verify this file:
 with this content:
 
 ```properties
-spring.data.mongodb.uri=mongodb://localhost:27017/form_builder
+spring.mongodb.uri=mongodb://localhost:27017/form_builder
 
 logging.level.com.aiagentictask.form_builder_api=DEBUG
 
@@ -119,7 +143,7 @@ app.cors.allowed-headers=*
 app.cors.allow-credentials=false
 app.cors.max-age=3600
 
-app.upload.dir=uploads/dev
+app.storage.local-dir=uploads/dev
 
 app.security.enable-hsts=false
 ```
@@ -158,7 +182,7 @@ http://localhost:8080/api
 Open a new terminal and go to the frontend folder:
 
 ```bash
-cd frontend
+cd form-builder-frontend
 ```
 
 Install dependencies:

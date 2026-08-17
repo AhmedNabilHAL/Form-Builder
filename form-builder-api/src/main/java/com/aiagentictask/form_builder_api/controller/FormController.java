@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -90,16 +91,26 @@ public class FormController {
         log.info("GET /api/forms/{}/submissions/{}/files/{}", formId, submissionId, fieldId);
         StoredFile file = submissionService.loadSubmissionFile(formId, submissionId, fieldId);
 
-        MediaType mediaType = file.contentType() != null
-                ? MediaType.parseMediaType(file.contentType())
-                : MediaType.APPLICATION_OCTET_STREAM;
         ContentDisposition disposition = ContentDisposition.attachment()
                 .filename(file.fileName(), StandardCharsets.UTF_8)
                 .build();
 
         return ResponseEntity.ok()
-                .contentType(mediaType)
+                .contentType(safeMediaType(file.contentType()))
+                .contentLength(file.content().length)
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
                 .body(file.content());
+    }
+
+    private MediaType safeMediaType(String contentType) {
+        if (contentType == null || contentType.isBlank()) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+        try {
+            return MediaType.parseMediaType(contentType);
+        } catch (InvalidMediaTypeException ex) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
     }
 }

@@ -175,3 +175,19 @@ export const getSubmissionByIdApi = async (
     method: "GET",
   });
 };
+
+/**
+ * Build the private attachment download endpoint for a submitted file.
+ * The backend verifies that the field belongs to the form and that the stored
+ * object is referenced by this exact submission.
+ */
+export const getSubmissionFileUrl = (
+  formId: string,
+  submissionId: string,
+  fieldId: string
+): string =>
+  buildUrl(
+    `/forms/${encodeURIComponent(formId)}/submissions/${encodeURIComponent(
+      submissionId
+    )}/files/${encodeURIComponent(fieldId)}`
+  );

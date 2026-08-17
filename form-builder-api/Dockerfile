@@ -15,6 +15,7 @@ COPY --from=build /app/target/*.jar app.jar
 
 # Cloud Run injects PORT (default 8080); server.port=${PORT:8080} reads it.
 EXPOSE 8080
+ENV SPRING_PROFILES_ACTIVE=prod
 
 # MaxRAMPercentage makes the JVM respect the container memory limit (e.g. 512Mi
 # on Cloud Run) instead of guessing, preventing OOM kills on small instances.

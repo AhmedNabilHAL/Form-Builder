@@ -30,10 +30,12 @@ public class LocalFileStorageService implements FileStorageService {
   public String store(MultipartFile file, String formId) {
     try {
       Path uploadPath = Paths.get(properties.getLocalDir()).toAbsolutePath().normalize();
-      Files.createDirectories(uploadPath);
-
-      String storageKey = StorageKeys.randomObjectName(file.getOriginalFilename());
-      Path filePath = uploadPath.resolve(storageKey);
+      String storageKey = StorageKeys.objectKey(
+          properties.getObjectPrefix(),
+          formId,
+          file.getOriginalFilename());
+      Path filePath = resolveOwnedPath(uploadPath, storageKey, formId);
+      Files.createDirectories(filePath.getParent());
       file.transferTo(filePath);
 
       log.info("Stored upload {}", filePath);
@@ -44,11 +46,11 @@ public class LocalFileStorageService implements FileStorageService {
   }
 
   @Override
-  public StoredFile load(String storageKey) {
+  public StoredFile load(String storageKey, String formId) {
     try {
       Path uploadPath = Paths.get(properties.getLocalDir()).toAbsolutePath().normalize();
-      Path filePath = uploadPath.resolve(storageKey).normalize();
-      if (!filePath.startsWith(uploadPath) || !Files.exists(filePath)) {
+      Path filePath = resolveOwnedPath(uploadPath, storageKey, formId);
+      if (!Files.isRegularFile(filePath)) {
         throw new ResourceNotFoundException("File not found: " + storageKey);
       }
 
@@ -58,5 +60,27 @@ public class LocalFileStorageService implements FileStorageService {
     } catch (IOException e) {
       throw new RuntimeException("Failed to read stored file", e);
     }
+  }
+
+  @Override
+  public void delete(String storageKey, String formId) {
+    try {
+      Path uploadPath = Paths.get(properties.getLocalDir()).toAbsolutePath().normalize();
+      Files.deleteIfExists(resolveOwnedPath(uploadPath, storageKey, formId));
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to delete stored file", e);
+    }
+  }
+
+  private Path resolveOwnedPath(Path uploadPath, String storageKey, String formId) {
+    if (!StorageKeys.belongsToForm(storageKey, properties.getObjectPrefix(), formId)) {
+      throw new ResourceNotFoundException("File not found");
+    }
+
+    Path filePath = uploadPath.resolve(storageKey).normalize();
+    if (!filePath.startsWith(uploadPath)) {
+      throw new ResourceNotFoundException("File not found");
+    }
+    return filePath;
   }
 }

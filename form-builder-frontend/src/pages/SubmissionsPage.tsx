@@ -681,6 +681,8 @@ const ResponseDetail = ({
             key={element.id}
             element={element}
             value={submission.answers[element.id] ?? null}
+            formId={form.id}
+            submissionId={submission.id}
           />
         ))}
       </Stack>

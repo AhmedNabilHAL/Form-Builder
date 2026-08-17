@@ -33,9 +33,10 @@ public class GcsFileStorageService implements FileStorageService {
 
   @Override
   public String store(MultipartFile file, String formId) {
-    String objectName = properties.getObjectPrefix()
-        + "/" + formId
-        + "/" + StorageKeys.randomObjectName(file.getOriginalFilename());
+    String objectName = StorageKeys.objectKey(
+        properties.getObjectPrefix(),
+        formId,
+        file.getOriginalFilename());
 
     BlobId blobId = BlobId.of(properties.getBucketName(), objectName);
     Map<String, String> metadata = new HashMap<>();
@@ -47,7 +48,7 @@ public class GcsFileStorageService implements FileStorageService {
         .build();
 
     try {
-      storage.create(blobInfo, file.getBytes());
+      storage.create(blobInfo, file.getBytes(), Storage.BlobTargetOption.doesNotExist());
     } catch (Exception e) {
       throw new RuntimeException("Failed to store uploaded file in Cloud Storage", e);
     }
@@ -57,9 +58,11 @@ public class GcsFileStorageService implements FileStorageService {
   }
 
   @Override
-  public StoredFile load(String storageKey) {
+  public StoredFile load(String storageKey, String formId) {
+    assertOwnedByForm(storageKey, formId);
+
     Blob blob = storage.get(BlobId.of(properties.getBucketName(), storageKey));
-    if (blob == null || !blob.exists()) {
+    if (blob == null) {
       throw new ResourceNotFoundException("File not found: " + storageKey);
     }
 
@@ -69,5 +72,17 @@ public class GcsFileStorageService implements FileStorageService {
     }
 
     return new StoredFile(blob.getContent(), blob.getContentType(), fileName);
+  }
+
+  @Override
+  public void delete(String storageKey, String formId) {
+    assertOwnedByForm(storageKey, formId);
+    storage.delete(BlobId.of(properties.getBucketName(), storageKey));
+  }
+
+  private void assertOwnedByForm(String storageKey, String formId) {
+    if (!StorageKeys.belongsToForm(storageKey, properties.getObjectPrefix(), formId)) {
+      throw new ResourceNotFoundException("File not found");
+    }
   }
 }

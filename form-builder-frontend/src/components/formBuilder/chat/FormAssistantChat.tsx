@@ -115,7 +115,7 @@ export default function FormAssistantChat({
         />
         <Skeleton variant="rounded" width="84%" height={92} />
         <Box sx={{ flex: 1 }} />
-        <Skeleton variant="rounded" height={82} />
+        <Skeleton variant="rounded" height={56} />
       </Stack>
     );
   }
@@ -144,9 +144,12 @@ export default function FormAssistantChat({
         messageAuthorName: null,
       }}
       slotProps={{
-        composerInput: { maxRows: 6 },
-        composerHelperText: {
-          children: "Enter to send · Shift+Enter for a new line",
+        composerRoot: {
+          variant: "compact",
+        },
+        composerInput: {
+          rows: 1,
+          title: "Enter to send · Shift+Enter for a new line",
         },
         suggestions: {
           "aria-label": "Suggested questions for the form assistant",
@@ -171,7 +174,7 @@ export default function FormAssistantChat({
       features={{
         attachments: false,
         conversationHeader: false,
-        helperText: true,
+        helperText: false,
         streamingIndicator: true,
         autoScroll: { buffer: 120 },
       }}
@@ -260,45 +263,50 @@ export default function FormAssistantChat({
           },
         },
         "& .MuiChatComposer-root": {
-          m: 1.5,
-          mt: 0.5,
+          m: { xs: 0.75, sm: 1 },
+          mt: 0,
+          p: 0.5,
+          gap: 0.5,
+          minHeight: 46,
           border: "1px solid",
           borderColor: "divider",
-          borderRadius: "14px",
+          borderRadius: "12px",
           bgcolor: "background.paper",
-          boxShadow: "0 12px 30px rgba(30, 22, 80, 0.10)",
+          boxShadow: "0 7px 20px rgba(30, 22, 80, 0.08)",
           "&:focus-within": {
             borderColor: "primary.main",
             boxShadow:
-              "0 0 0 3px rgba(91, 80, 247, 0.12), 0 12px 30px rgba(30, 22, 80, 0.10)",
+              "0 0 0 3px rgba(91, 80, 247, 0.12), 0 7px 20px rgba(30, 22, 80, 0.08)",
           },
         },
         "& .MuiChatComposer-textArea": {
-          minHeight: 50,
-          px: 1.5,
-          py: 1.25,
+          height: "auto !important",
+          minHeight: 36,
+          maxHeight: 104,
+          px: 1,
+          py: 0.625,
+          fieldSizing: "content",
+          overflowY: "auto",
           fontFamily: '"DM Sans Variable", sans-serif',
-          fontSize: "1rem",
-          lineHeight: 1.5,
+          fontSize: "0.94rem",
+          lineHeight: 1.4,
+        },
+        "& .MuiChatComposer-toolbar": {
+          flexShrink: 0,
         },
         "& .MuiChatComposer-sendButton": {
-          m: 0.75,
-          width: 40,
-          height: 40,
+          m: 0,
+          width: 36,
+          height: 36,
           color: "common.white",
           bgcolor: "primary.main",
-          borderRadius: "10px",
+          borderRadius: "9px",
+          fontSize: "1.1rem",
           "&:hover": { bgcolor: "primary.dark" },
           "&:disabled": {
             color: "text.disabled",
             bgcolor: "primary.light",
           },
-        },
-        "& .MuiChatComposer-helperText": {
-          px: 1.5,
-          pb: 1,
-          color: "text.secondary",
-          fontSize: "0.7rem",
         },
       }}
     />

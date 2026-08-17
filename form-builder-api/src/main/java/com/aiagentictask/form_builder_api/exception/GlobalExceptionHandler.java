@@ -55,6 +55,18 @@ public class GlobalExceptionHandler {
                                                 "message", ex.getMessage()));
         }
 
+        @ExceptionHandler(InvalidSubmissionException.class)
+        public org.springframework.http.ResponseEntity<Map<String, Object>> handleInvalidSubmission(
+                        InvalidSubmissionException ex) {
+                log.warn("Invalid submission: {}", ex.getMessage());
+                return org.springframework.http.ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(Map.of(
+                                                "timestamp", Instant.now().toString(),
+                                                "status", 400,
+                                                "error", "Bad Request",
+                                                "message", ex.getMessage()));
+        }
+
         @ExceptionHandler(MaxUploadSizeExceededException.class)
         public org.springframework.http.ResponseEntity<Map<String, Object>> handleMaxUploadSize(
                         MaxUploadSizeExceededException ex) {

@@ -37,20 +37,9 @@ public class StorageProperties {
   /** Maximum accepted file size in bytes (default 10 MB). */
   private long maxFileSizeBytes = 10L * 1024 * 1024;
 
-  /**
-   * Allowed MIME types. An empty list allows any type. Defaults to common
-   * document and image formats.
-   */
+  /** Allowed MIME types. An empty list allows any type. */
   private List<String> allowedContentTypes = List.of(
       "image/png",
       "image/jpeg",
-      "image/gif",
-      "image/webp",
-      "application/pdf",
-      "text/plain",
-      "text/csv",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/vnd.ms-excel",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      "application/pdf");
 }
