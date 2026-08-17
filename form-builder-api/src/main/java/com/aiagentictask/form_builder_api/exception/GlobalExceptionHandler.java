@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 @Slf4j
@@ -40,6 +41,30 @@ public class GlobalExceptionHandler {
                                                 "status", 400,
                                                 "error", "Bad Request",
                                                 "message", message));
+        }
+
+        @ExceptionHandler(InvalidFileException.class)
+        public org.springframework.http.ResponseEntity<Map<String, Object>> handleInvalidFile(
+                        InvalidFileException ex) {
+                log.warn("Invalid file upload: {}", ex.getMessage());
+                return org.springframework.http.ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(Map.of(
+                                                "timestamp", Instant.now().toString(),
+                                                "status", 400,
+                                                "error", "Bad Request",
+                                                "message", ex.getMessage()));
+        }
+
+        @ExceptionHandler(MaxUploadSizeExceededException.class)
+        public org.springframework.http.ResponseEntity<Map<String, Object>> handleMaxUploadSize(
+                        MaxUploadSizeExceededException ex) {
+                log.warn("Upload exceeded the maximum allowed size");
+                return org.springframework.http.ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(Map.of(
+                                                "timestamp", Instant.now().toString(),
+                                                "status", 400,
+                                                "error", "Bad Request",
+                                                "message", "Uploaded file exceeds the maximum allowed size"));
         }
 
         @ExceptionHandler(FormGenerationException.class)

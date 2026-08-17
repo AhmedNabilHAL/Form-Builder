@@ -29,6 +29,18 @@
 	<properties>
 		<java.version>21</java.version>
 	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<!-- Manages google-cloud-storage and aligns transitive Google libs. -->
+			<dependency>
+				<groupId>com.google.cloud</groupId>
+				<artifactId>libraries-bom</artifactId>
+				<version>26.50.0</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<dependencies>
 		<!-- Source: https://mvnrepository.com/artifact/org.mapstruct/mapstruct -->
 		<dependency>
@@ -41,6 +53,11 @@
 			<groupId>com.google.genai</groupId>
 			<artifactId>google-genai</artifactId>
 			<version>1.65.0</version>
+		</dependency>
+		<!-- Google Cloud Storage for persistent submission file uploads (version from libraries-bom). -->
+		<dependency>
+			<groupId>com.google.cloud</groupId>
+			<artifactId>google-cloud-storage</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
