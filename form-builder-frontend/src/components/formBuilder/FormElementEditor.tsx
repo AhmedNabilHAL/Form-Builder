@@ -65,7 +65,21 @@ export const FormElementEditor = ({
   };
 
   return (
-    <Stack spacing={2.5}>
+    <Stack
+      spacing={1.75}
+      sx={{
+        "& .MuiInputBase-root": {
+          minHeight: 42,
+          fontSize: "0.8125rem",
+        },
+        "& .MuiInputBase-input": {
+          py: 1,
+        },
+        "& .MuiInputLabel-root": {
+          fontSize: "0.8125rem",
+        },
+      }}
+    >
       {issues.length > 0 && (
         <Alert severity="error" role="alert">
           <Typography fontWeight={700}>This question needs attention</Typography>
@@ -83,24 +97,54 @@ export const FormElementEditor = ({
         render={({ field }) => (
           <TextField
             {...field}
-            label="Question"
+            size="small"
+            multiline
+            minRows={1}
             placeholder="Enter a question"
             autoComplete="off"
             error={issues.some((issue) => issue.includes("title"))}
+            inputProps={{ "aria-label": "Question" }}
+            sx={{
+              "& .MuiInputBase-root": {
+                minHeight: 62,
+                alignItems: "flex-start",
+                bgcolor: "#F9F8FF",
+              },
+              "& .MuiInputBase-inputMultiline": {
+                fontSize: "0.9rem",
+                fontWeight: 650,
+                lineHeight: 1.45,
+              },
+            }}
           />
         )}
       />
 
-      <TextField
-        select
-        label="Answer type"
-        value={type}
-        onChange={(event) => changeType(event.target.value as InputType)}
-      >
-        <MenuItem value="text-input">Short answer</MenuItem>
-        <MenuItem value="select-input">Multiple choice</MenuItem>
-        <MenuItem value="file-upload">File upload</MenuItem>
-      </TextField>
+      <Stack spacing={0.75}>
+        <Typography
+          sx={{
+            fontFamily: '"JetBrains Mono", monospace',
+            fontSize: "0.58rem",
+            fontWeight: 600,
+            letterSpacing: "0.11em",
+            color: "text.secondary",
+            textTransform: "uppercase",
+          }}
+        >
+          Answer type
+        </Typography>
+        <TextField
+          select
+          size="small"
+          value={type}
+          onChange={(event) => changeType(event.target.value as InputType)}
+          inputProps={{ "aria-label": "Answer type" }}
+        >
+          <MenuItem value="text-input">Short answer</MenuItem>
+          <MenuItem value="select-input">Multiple choice</MenuItem>
+          <MenuItem value="file-upload">File upload</MenuItem>
+        </TextField>
+      </Stack>
 
       {type === "select-input" && <SelectOptionsEditor index={index} />}
 
@@ -115,18 +159,22 @@ export const FormElementEditor = ({
               alignItems: "center",
               justifyContent: "space-between",
               gap: 2,
-              minHeight: 64,
-              p: 1.5,
-              border: "1px solid",
+              minHeight: 52,
+              pt: 1.5,
+              borderTop: "1px solid",
               borderColor: "divider",
-              borderRadius: "10px",
               cursor: "pointer",
             }}
           >
             <Box>
-              <Typography variant="subtitle2">Required</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Respondents must answer before submitting.
+              <Typography component="span" variant="subtitle2">
+                Required
+              </Typography>
+              <Typography
+                color="text.secondary"
+                sx={{ mt: 0.2, fontSize: "0.72rem" }}
+              >
+                Must answer before submitting
               </Typography>
             </Box>
             <FormControlLabel

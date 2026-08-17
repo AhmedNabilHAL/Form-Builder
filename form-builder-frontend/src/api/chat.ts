@@ -39,11 +39,13 @@ export const generateFormFromPromptApi = async (
  * whose `type` is MESSAGE, DATA, or FORM.
  */
 export const sendChatMessageApi = async (
-  payload: ChatRequestPayload
+  payload: ChatRequestPayload,
+  signal?: AbortSignal
 ): Promise<AgentResponse> => {
   return request<AgentResponse>("/chat", {
     method: "POST",
     body: JSON.stringify(payload),
+    signal,
   });
 };
 
@@ -57,4 +59,3 @@ export const getChatHistoryApi = async (
 ): Promise<ChatSessionDto> => {
   return request<ChatSessionDto>(`/chat/${encodeURIComponent(sessionId)}`);
 };
-

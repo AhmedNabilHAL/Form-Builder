@@ -1,11 +1,7 @@
 import type { Form } from "../types/Form";
 import type { Submission, SubmissionValue } from "../types/Submission";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-if (!API_BASE_URL) {
-  throw new Error("Missing VITE_API_BASE_URL");
-}
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 type ApiErrorResponse = {
   timestamp?: string;

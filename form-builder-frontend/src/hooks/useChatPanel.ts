@@ -1,19 +1,29 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-export const CHAT_MIN_WIDTH = 320;
-export const CHAT_DEFAULT_WIDTH = 400;
-export const CHAT_MAX_WIDTH = 720;
+export const CHAT_MIN_WIDTH = 360;
+export const CHAT_DEFAULT_WIDTH = 448;
+export const CHAT_MAX_WIDTH = 760;
+export const CHAT_WORKSPACE_MIN_WIDTH = 560;
+export const CHAT_DOCK_BREAKPOINT = 1024;
 
 const WIDTH_STORAGE_KEY = "form-assistant-panel-width";
 
 /** Clamp a requested width to the allowed range, capped to the viewport. */
-const clampWidth = (value: number): number => {
-  const viewportCap =
-    typeof window !== "undefined"
-      ? Math.max(CHAT_MIN_WIDTH, Math.round(window.innerWidth * 0.9))
-      : CHAT_MAX_WIDTH;
+export const getChatMaxWidth = (): number => {
+  if (typeof window === "undefined") return CHAT_MAX_WIDTH;
+  if (window.innerWidth < CHAT_DOCK_BREAKPOINT) return CHAT_MAX_WIDTH;
 
-  const max = Math.min(CHAT_MAX_WIDTH, viewportCap);
+  return Math.min(
+    CHAT_MAX_WIDTH,
+    Math.max(
+      CHAT_MIN_WIDTH,
+      Math.round(window.innerWidth - CHAT_WORKSPACE_MIN_WIDTH)
+    )
+  );
+};
+
+const clampWidth = (value: number): number => {
+  const max = getChatMaxWidth();
   return Math.min(Math.max(value, CHAT_MIN_WIDTH), max);
 };
 
@@ -58,6 +68,15 @@ export const useChatPanel = (initialOpen = false): ChatPanelState => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(WIDTH_STORAGE_KEY, String(clamped));
     }
+  }, []);
+
+  useEffect(() => {
+    const keepWidthInsideViewport = () => {
+      setWidthState((current) => clampWidth(current));
+    };
+
+    window.addEventListener("resize", keepWidthInsideViewport);
+    return () => window.removeEventListener("resize", keepWidthInsideViewport);
   }, []);
 
   return { isOpen, open, close, toggle, width, setWidth, isResizing, setResizing };

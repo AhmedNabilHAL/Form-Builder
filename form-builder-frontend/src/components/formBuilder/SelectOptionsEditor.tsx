@@ -1,15 +1,10 @@
-import AddIcon from "@mui/icons-material/Add";
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import {
   Box,
   Button,
   IconButton,
   Stack,
   TextField,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import { Controller, useFieldArray, useFormContext, useWatch } from "react-hook-form";
@@ -22,7 +17,7 @@ interface SelectOptionsEditorProps {
 
 export const SelectOptionsEditor = ({ index }: SelectOptionsEditorProps) => {
   const { control } = useFormContext<Form>();
-  const { fields, append, remove, move } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control,
     name: `elements.${index}.options`,
   });
@@ -33,28 +28,41 @@ export const SelectOptionsEditor = ({ index }: SelectOptionsEditorProps) => {
     .map((option) => option.value.trim().toLocaleLowerCase())
     .filter(Boolean);
   const hasDuplicates = normalized.length !== new Set(normalized).size;
-
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="baseline">
-        <Typography variant="subtitle2">Choices</Typography>
-        <Typography variant="caption" color="text.secondary">
-          At least two
-        </Typography>
-      </Stack>
+      <Typography
+        component="h3"
+        sx={{
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: "0.58rem",
+          fontWeight: 600,
+          letterSpacing: "0.11em",
+          color: "text.secondary",
+          textTransform: "uppercase",
+        }}
+      >
+        Choices
+      </Typography>
 
-      <Stack spacing={1} sx={{ mt: 1 }}>
+      <Stack spacing={0.75} sx={{ mt: 0.85 }}>
         {fields.map((field, optionIndex) => (
           <Stack
             key={field.id}
             direction="row"
-            spacing={0.5}
+            spacing={0.75}
             alignItems="center"
             sx={{ minWidth: 0 }}
           >
-            <DragIndicatorIcon
+            <Box
               aria-hidden="true"
-              sx={{ color: "text.disabled", flex: "0 0 auto" }}
+              sx={{
+                width: 16,
+                height: 16,
+                flex: "0 0 16px",
+                borderRadius: "50%",
+                border: "2px solid",
+                borderColor: "divider",
+              }}
             />
             <Controller
               name={`elements.${index}.options.${optionIndex}.value`}
@@ -62,51 +70,31 @@ export const SelectOptionsEditor = ({ index }: SelectOptionsEditorProps) => {
               render={({ field: optionField }) => (
                 <TextField
                   {...optionField}
+                  size="small"
                   placeholder={`Option ${optionIndex + 1}`}
                   inputProps={{
                     "aria-label": `Choice ${optionIndex + 1}`,
                   }}
-                  sx={{ flex: 1, minWidth: 0 }}
+                  sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    "& .MuiOutlinedInput-root": {
+                      minHeight: 38,
+                      bgcolor: "#F9F8FF",
+                    },
+                  }}
                 />
               )}
             />
-            <Tooltip title="Move choice up">
-              <span>
-                <IconButton
-                  type="button"
-                  size="small"
-                  disabled={optionIndex === 0}
-                  aria-label={`Move choice ${optionIndex + 1} up`}
-                  onClick={() => move(optionIndex, optionIndex - 1)}
-                >
-                  <ArrowUpwardIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Move choice down">
-              <span>
-                <IconButton
-                  type="button"
-                  size="small"
-                  disabled={optionIndex === fields.length - 1}
-                  aria-label={`Move choice ${optionIndex + 1} down`}
-                  onClick={() => move(optionIndex, optionIndex + 1)}
-                >
-                  <ArrowDownwardIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Delete choice">
-              <IconButton
-                type="button"
-                size="small"
-                color="error"
-                aria-label={`Delete choice ${optionIndex + 1}`}
-                onClick={() => remove(optionIndex)}
-              >
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            <IconButton
+              type="button"
+              size="small"
+              aria-label={`Delete choice ${optionIndex + 1}`}
+              onClick={() => remove(optionIndex)}
+              sx={{ width: 28, height: 28, color: "text.secondary" }}
+            >
+              <CloseRoundedIcon sx={{ fontSize: 17 }} />
+            </IconButton>
           </Stack>
         ))}
       </Stack>
@@ -119,17 +107,23 @@ export const SelectOptionsEditor = ({ index }: SelectOptionsEditorProps) => {
 
       <Button
         type="button"
-        variant="outlined"
-        startIcon={<AddIcon />}
+        variant="text"
         onClick={() =>
           append({
             id: crypto.randomUUID(),
             value: "",
           })
         }
-        sx={{ mt: 1.5 }}
+        sx={{
+          mt: 0.75,
+          px: 0,
+          minWidth: 0,
+          minHeight: 28,
+          fontSize: "0.75rem",
+          "&:hover": { bgcolor: "transparent", textDecoration: "underline" },
+        }}
       >
-        Add choice
+        + Add option
       </Button>
     </Box>
   );

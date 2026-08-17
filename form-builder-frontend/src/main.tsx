@@ -1,8 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "@fontsource-variable/sora";
-import "@fontsource-variable/public-sans";
-import "@fontsource/ibm-plex-mono/500.css";
+import "@fontsource-variable/dm-sans";
+import "@fontsource/jetbrains-mono/500.css";
+import "@fontsource/jetbrains-mono/600.css";
 import "./index.css";
 import App from "./App.tsx";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

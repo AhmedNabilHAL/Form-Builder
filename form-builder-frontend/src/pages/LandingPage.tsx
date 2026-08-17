@@ -1,7 +1,9 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import AddIcon from "@mui/icons-material/Add";
 import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import OpenInNewOutlinedIcon from "@mui/icons-material/OpenInNewOutlined";
@@ -46,8 +48,18 @@ import {
 import type { Form } from "../types/Form";
 import { EmptyState } from "../components/ui/EmptyState";
 import { StatusChip } from "../components/ui/StatusChip";
+import { ChatPanel } from "../components/formBuilder/chat/ChatPanel";
+import { clearSessionId } from "../components/formBuilder/chat/chatSessionStore";
+import { useChatDock } from "../components/layout/useChatDock";
+import { useFormChatAdapter } from "../hooks/useFormChatAdapter";
+import {
+  createEmptyForm,
+  prepareFormProposal,
+  summarizeFormChanges,
+} from "../utils/form";
 
 type SortOption = "title" | "questions" | "responses";
+const OVERVIEW_ASSISTANT_SESSION_KEY = "forms-overview";
 
 const publicFormUrl = (id: string) =>
   `${window.location.origin}/forms/${encodeURIComponent(id)}`;
@@ -55,13 +67,17 @@ const publicFormUrl = (id: string) =>
 export const LandingPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const chatDock = useChatDock();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("title");
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuForm, setMenuForm] = useState<Form | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Form | null>(null);
   const [notice, setNotice] = useState("");
+  const [assistantProposal, setAssistantProposal] = useState<Form | null>(null);
+  const [chatResetKey, setChatResetKey] = useState(0);
   const keepFormButtonRef = useRef<HTMLButtonElement>(null);
+  const assistantBaseForm = useMemo(() => createEmptyForm(), []);
 
   const formsQuery = useQuery({
     queryKey: ["forms"],
@@ -121,6 +137,47 @@ export const LandingPage = () => {
     },
   });
 
+  const getAssistantForm = useCallback(
+    () => assistantBaseForm,
+    [assistantBaseForm]
+  );
+  const handleFormProposed = useCallback(
+    (proposal: Form) => {
+      setAssistantProposal(
+        prepareFormProposal(proposal, assistantBaseForm)
+      );
+    },
+    [assistantBaseForm]
+  );
+  const chatAdapter = useFormChatAdapter({
+    getCurrentForm: getAssistantForm,
+    onFormProposed: handleFormProposed,
+    sessionKey: OVERVIEW_ASSISTANT_SESSION_KEY,
+    resetKey: chatResetKey,
+  });
+
+  const handleResetChat = useCallback(() => {
+    clearSessionId(OVERVIEW_ASSISTANT_SESSION_KEY);
+    queryClient.removeQueries({ queryKey: ["chat-history"] });
+    setAssistantProposal(null);
+    setChatResetKey((key) => key + 1);
+  }, [queryClient]);
+
+  const proposalSummary = assistantProposal
+    ? summarizeFormChanges(assistantBaseForm, assistantProposal)
+    : [];
+
+  const openAssistantDraft = useCallback(() => {
+    if (!assistantProposal) return;
+
+    navigate("/forms/new", {
+      state: {
+        assistantDraft: assistantProposal,
+        assistantSessionKey: OVERVIEW_ASSISTANT_SESSION_KEY,
+      },
+    });
+  }, [assistantProposal, navigate]);
+
   const openMenu = (event: React.MouseEvent<HTMLElement>, form: Form) => {
     setMenuAnchor(event.currentTarget);
     setMenuForm(form);
@@ -146,32 +203,96 @@ export const LandingPage = () => {
   );
 
   return (
-    <Box sx={{ width: "100%" }}>
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        alignItems={{ xs: "stretch", md: "center" }}
-        justifyContent="space-between"
-        spacing={2}
-        sx={{ minHeight: 64, mb: 3 }}
+    <Box
+      sx={{
+        width: "100%",
+        boxSizing: "border-box",
+        pr: chatDock.isOpen
+          ? 0
+          : {
+              xs: "56px",
+              md: "64px",
+            },
+        transition: "padding-right 240ms cubic-bezier(0.2, 0, 0, 1)",
+      }}
+    >
+      <Box
+        component="section"
+        aria-labelledby="forms-overview-title"
+        sx={{
+          mb: 3,
+          px: { xs: 2, sm: 2.75, md: 3.25 },
+          py: { xs: 2.25, sm: 2.75 },
+          border: "1px solid rgba(30, 22, 80, 0.13)",
+          borderRadius: "16px",
+          background:
+            "linear-gradient(135deg, rgba(30, 22, 80, 0.075) 0%, rgba(91, 80, 247, 0.035) 100%)",
+        }}
       >
-        <Box>
-          <Typography component="h1" variant="h1" tabIndex={-1}>
-            Forms
-          </Typography>
-          <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-            Create, publish, and review your forms.
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          size="large"
-          startIcon={<AddIcon />}
-          onClick={() => navigate("/forms/new")}
-          sx={{ alignSelf: { xs: "stretch", md: "center" }, minHeight: 48 }}
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={{ xs: 1.75, sm: 2.25 }}
         >
-          New form
-        </Button>
-      </Stack>
+          <Box
+            aria-hidden="true"
+            sx={{
+              width: { xs: 44, sm: 50 },
+              height: { xs: 44, sm: 50 },
+              flex: "0 0 auto",
+              display: "grid",
+              placeItems: "center",
+              borderRadius: "13px",
+              bgcolor: "secondary.main",
+              color: "common.white",
+              boxShadow: "0 8px 20px rgba(30, 22, 80, 0.18)",
+            }}
+          >
+            <DescriptionOutlinedIcon sx={{ fontSize: { xs: 23, sm: 26 } }} />
+          </Box>
+
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontFamily: '"JetBrains Mono", monospace',
+                fontSize: "0.62rem",
+                lineHeight: 1.4,
+                fontWeight: 600,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "secondary.main",
+              }}
+            >
+              Form workspace
+            </Typography>
+            <Typography
+              id="forms-overview-title"
+              component="h1"
+              tabIndex={-1}
+              sx={{
+                mt: 0.25,
+                fontSize: {
+                  xs: "1.85rem",
+                  sm: "2.2rem",
+                  md: "2.45rem",
+                },
+                lineHeight: 1.08,
+                fontWeight: 780,
+                letterSpacing: "-0.045em",
+                color: "secondary.main",
+              }}
+            >
+              Forms
+            </Typography>
+            <Typography
+              color="text.secondary"
+              sx={{ mt: 0.55, maxWidth: "48ch" }}
+            >
+              Create, publish, and review your forms.
+            </Typography>
+          </Box>
+        </Stack>
+      </Box>
 
       {!formsQuery.isLoading && !formsQuery.isError && forms.length > 0 && (
         <Stack
@@ -186,7 +307,8 @@ export const LandingPage = () => {
             <Typography
               sx={{
                 mt: 0.5,
-                fontFamily: '"Sora Variable", sans-serif',
+                fontFamily:
+                  '"DM Sans Variable", "Segoe UI", sans-serif',
                 fontSize: "1.5rem",
                 fontWeight: 650,
                 fontVariantNumeric: "tabular-nums",
@@ -205,7 +327,8 @@ export const LandingPage = () => {
               <Typography
                 sx={{
                   mt: 0.5,
-                  fontFamily: '"Sora Variable", sans-serif',
+                  fontFamily:
+                    '"DM Sans Variable", "Segoe UI", sans-serif',
                   fontSize: "1.5rem",
                   fontWeight: 650,
                   fontVariantNumeric: "tabular-nums",
@@ -222,7 +345,8 @@ export const LandingPage = () => {
             <Typography
               sx={{
                 mt: 0.5,
-                fontFamily: '"Sora Variable", sans-serif',
+                fontFamily:
+                  '"DM Sans Variable", "Segoe UI", sans-serif',
                 fontSize: "1.5rem",
                 fontWeight: 650,
                 fontVariantNumeric: "tabular-nums",
@@ -343,7 +467,7 @@ export const LandingPage = () => {
             component={Card}
             sx={{ display: { xs: "none", md: "block" }, overflow: "hidden" }}
           >
-            <Table aria-label="Forms">
+            <Table aria-label="Forms" sx={{ tableLayout: "fixed" }}>
               <TableHead>
                 <TableRow>
                   <TableCell>Form</TableCell>
@@ -539,6 +663,30 @@ export const LandingPage = () => {
           Delete form
         </MenuItem>
       </Menu>
+
+      {chatDock.isOpen &&
+        chatDock.portalNode &&
+        createPortal(
+          <ChatPanel
+            key={chatResetKey}
+            onClose={chatDock.close}
+            onReset={handleResetChat}
+            adapter={chatAdapter}
+            sessionKey={OVERVIEW_ASSISTANT_SESSION_KEY}
+            formTitle="New form workspace"
+            status="Ready"
+            mode="overview"
+            assistantDescription="Turns an idea into a form draft you can review"
+            contextLabel="Workspace"
+            proposalSummary={proposalSummary}
+            proposalTitle="Draft ready"
+            proposalDescription="Generated by AI · Open it in the editor before publishing"
+            applyProposalLabel="Open draft"
+            onApplyProposal={openAssistantDraft}
+            onDismissProposal={() => setAssistantProposal(null)}
+          />,
+          chatDock.portalNode
+        )}
 
       <Dialog
         open={Boolean(deleteTarget)}
