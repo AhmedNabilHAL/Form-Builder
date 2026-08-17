@@ -6,21 +6,12 @@ import {
   useRef,
   useState,
 } from "react";
-import AddIcon from "@mui/icons-material/Add";
+import { createPortal } from "react-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import CloseIcon from "@mui/icons-material/Close";
 import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import OpenInNewOutlinedIcon from "@mui/icons-material/OpenInNewOutlined";
-import PreviewOutlinedIcon from "@mui/icons-material/PreviewOutlined";
-import PublishOutlinedIcon from "@mui/icons-material/PublishOutlined";
 import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
-import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
-import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
 import {
   Alert,
   Box,
@@ -32,7 +23,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  Drawer,
   IconButton,
   List,
   ListItemButton,
@@ -43,8 +33,6 @@ import {
   Skeleton,
   Snackbar,
   Stack,
-  Tab,
-  Tabs,
   TextField,
   Tooltip,
   Typography,
@@ -62,6 +50,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Link as RouterLink,
   useBlocker,
+  useLocation,
   useNavigate,
   useParams,
 } from "react-router-dom";
@@ -74,7 +63,6 @@ import {
   updateFormApi,
 } from "../api/form";
 import { FormElementBuilder } from "../components/formBuilder/FormElementBuilder";
-import { FormElementEditor } from "../components/formBuilder/FormElementEditor";
 import { FormElementPreview } from "../components/formBuilder/FormBuilderPreview";
 import { ChatPanel } from "../components/formBuilder/chat/ChatPanel";
 import {
@@ -83,74 +71,60 @@ import {
 } from "../components/formBuilder/chat/chatSessionStore";
 import { useFormChatAdapter } from "../hooks/useFormChatAdapter";
 import { StatusChip } from "../components/ui/StatusChip";
+import { useChatDock } from "../components/layout/useChatDock";
 import {
   createEmptyForm,
   createFormElement,
   inputTypeLabel,
   normalizeForm,
+  prepareFormProposal,
   summarizeFormChanges,
   validateForm,
   type FormValidationIssue,
 } from "../utils/form";
-
-type PanelTab = "settings" | "assistant";
 
 interface UndoSnapshot {
   form: Form;
   message: string;
 }
 
+interface FormBuilderLocationState {
+  assistantDraft?: Form;
+  assistantSessionKey?: string;
+}
+
 const publicFormUrl = (id: string) =>
   `${window.location.origin}/forms/${encodeURIComponent(id)}`;
 
-const prepareProposal = (proposal: Form, currentForm: Form): Form => {
-  const seenIds = new Set<string>();
-
-  return normalizeForm({
-    ...proposal,
-    id: currentForm.id,
-    elements: (proposal.elements ?? []).map((element, index) => {
-      let elementId = element.id?.trim();
-      if (!elementId || seenIds.has(elementId)) {
-        elementId = crypto.randomUUID();
-      }
-      seenIds.add(elementId);
-
-      if (element.type === "select-input") {
-        return {
-          ...element,
-          id: elementId,
-          sortOrder: index,
-          options: element.options.map((option) => ({
-            ...option,
-            id: option.id?.trim() || crypto.randomUUID(),
-          })),
-        };
-      }
-
-      return {
-        ...element,
-        id: elementId,
-        sortOrder: index,
-      };
-    }),
-  });
-};
-
 export const FormBuilderPage = () => {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down("md"));
-  const wide = useMediaQuery(theme.breakpoints.up("xl"));
-  const [draftId] = useState(() => crypto.randomUUID());
+  const chatDock = useChatDock();
+  const assistantMode = chatDock.isOpen;
   const isEditMode = Boolean(id);
+  const routeState = location.state as FormBuilderLocationState | null;
+  const [inheritedAssistantSessionKey] = useState(
+    () => routeState?.assistantSessionKey
+  );
+  const [draftId] = useState(() => crypto.randomUUID());
+  const [initialForm] = useState<Form>(() =>
+    !isEditMode && routeState?.assistantDraft
+      ? prepareFormProposal(routeState.assistantDraft, createEmptyForm())
+      : createEmptyForm()
+  );
 
-  const [activeElementId, setActiveElementId] = useState<string | null>(null);
-  const [panelTab, setPanelTab] = useState<PanelTab>("settings");
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [activeElementId, setActiveElementId] = useState<string | null>(
+    initialForm.elements[0]?.id ?? null
+  );
+  const [editingElementId, setEditingElementId] = useState<string | null>(null);
   const [addMenuAnchor, setAddMenuAnchor] = useState<HTMLElement | null>(null);
+  const [toolsMenuAnchor, setToolsMenuAnchor] = useState<HTMLElement | null>(
+    null
+  );
   const [showValidation, setShowValidation] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -159,17 +133,18 @@ export const FormBuilderPage = () => {
   );
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [undoSnapshot, setUndoSnapshot] = useState<UndoSnapshot | null>(null);
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(
+    !isEditMode && routeState?.assistantDraft
+      ? "Assistant draft opened. Review it before publishing."
+      : ""
+  );
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [assistantProposal, setAssistantProposal] = useState<Form | null>(null);
   const [proposalReviewOpen, setProposalReviewOpen] = useState(false);
   const [chatResetKey, setChatResetKey] = useState(0);
-  const [mobileQuestionBaseline, setMobileQuestionBaseline] =
-    useState<FormElement | null>(null);
-  const [discardQuestionOpen, setDiscardQuestionOpen] = useState(false);
   const allowNavigationRef = useRef(false);
+  const questionCardRefs = useRef(new Map<string, HTMLDivElement>());
   const keepQuestionButtonRef = useRef<HTMLButtonElement>(null);
-  const keepEditingButtonRef = useRef<HTMLButtonElement>(null);
   const stayButtonRef = useRef<HTMLButtonElement>(null);
 
   const formQuery = useQuery({
@@ -179,7 +154,7 @@ export const FormBuilderPage = () => {
   });
 
   const methods = useForm<Form>({
-    defaultValues: createEmptyForm(),
+    defaultValues: initialForm,
     mode: "onChange",
   });
   const {
@@ -187,7 +162,6 @@ export const FormBuilderPage = () => {
     getValues,
     handleSubmit,
     reset,
-    setValue,
     formState: { isDirty },
   } = methods;
 
@@ -204,17 +178,37 @@ export const FormBuilderPage = () => {
   });
 
   const form = useWatch({ control }) as Form;
-  const elements = useWatch({ control, name: "elements" }) ?? [];
+  const watchedElements = useWatch({ control, name: "elements" });
+  const elements = useMemo(() => watchedElements ?? [], [watchedElements]);
+  const elementIds = useMemo(
+    () => elements.map((element) => element.id).join("|"),
+    [elements]
+  );
   const validationIssues = useMemo(
     () => (showValidation ? validateForm(form) : []),
     [form, showValidation]
   );
   const resolvedActiveElementId =
     activeElementId ?? elements[0]?.id ?? null;
-  const activeIndex = elements.findIndex(
-    (element) => element.id === resolvedActiveElementId
+
+  const registerQuestionCard = useCallback(
+    (elementId: string, node: HTMLDivElement | null) => {
+      if (node) {
+        questionCardRefs.current.set(elementId, node);
+      } else {
+        questionCardRefs.current.delete(elementId);
+      }
+    },
+    []
   );
-  const activeElement = activeIndex >= 0 ? elements[activeIndex] : null;
+
+  const scrollToQuestion = useCallback((elementId: string) => {
+    setActiveElementId(elementId);
+    questionCardRefs.current.get(elementId)?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, []);
 
   const keepMobileFocusVisible = useCallback(
     (event: FocusEvent<HTMLElement>) => {
@@ -259,6 +253,51 @@ export const FormBuilderPage = () => {
     const loadedForm = normalizeForm(formQuery.data);
     reset(loadedForm);
   }, [formQuery.data, reset]);
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined" || !elementIds) return;
+
+    const updateActiveQuestion = () => {
+      const anchorY = Math.min(window.innerHeight * 0.42, 360);
+      let bestId: string | null = null;
+      let bestDistance = Number.POSITIVE_INFINITY;
+
+      questionCardRefs.current.forEach((node, elementId) => {
+        const rect = node.getBoundingClientRect();
+        if (rect.bottom <= 102 || rect.top >= window.innerHeight) return;
+
+        const distance =
+          rect.top <= anchorY && rect.bottom >= anchorY
+            ? 0
+            : Math.min(
+                Math.abs(rect.top - anchorY),
+                Math.abs(rect.bottom - anchorY)
+              );
+
+        if (distance < bestDistance) {
+          bestId = elementId;
+          bestDistance = distance;
+        }
+      });
+
+      if (bestId) {
+        setActiveElementId(bestId);
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      updateActiveQuestion,
+      {
+        root: null,
+        rootMargin: "-102px 0px -12% 0px",
+        threshold: [0, 0.2, 0.5, 0.8, 1],
+      }
+    );
+
+    questionCardRefs.current.forEach((node) => observer.observe(node));
+    updateActiveQuestion();
+    return () => observer.disconnect();
+  }, [editingElementId, elementIds]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -327,13 +366,15 @@ export const FormBuilderPage = () => {
   const getCurrentForm = useCallback(() => getValues(), [getValues]);
   const handleFormProposed = useCallback(
     (proposal: Form) => {
-      setAssistantProposal(prepareProposal(proposal, getValues()));
+      setAssistantProposal(prepareFormProposal(proposal, getValues()));
     },
     [getValues]
   );
   const sessionKey = useMemo(
-    () => sessionKeyForForm(id, draftId),
-    [draftId, id]
+    () =>
+      inheritedAssistantSessionKey?.trim() ||
+      sessionKeyForForm(id, draftId),
+    [draftId, id, inheritedAssistantSessionKey]
   );
   const chatAdapter = useFormChatAdapter({
     getCurrentForm,
@@ -350,19 +391,9 @@ export const FormBuilderPage = () => {
   }, [queryClient, sessionKey]);
 
   const openQuestionEditor = (elementId: string) => {
-    const element = getValues("elements").find((item) => item.id === elementId);
     setActiveElementId(elementId);
-    setPanelTab("settings");
-    setPanelOpen(!wide);
-    setMobileQuestionBaseline(
-      mobile && element ? structuredClone(element) : null
-    );
-  };
-
-  const openAssistant = () => {
-    setPanelTab("assistant");
-    setPanelOpen(!wide);
-    setMobileQuestionBaseline(null);
+    setEditingElementId(elementId);
+    window.requestAnimationFrame(() => scrollToQuestion(elementId));
   };
 
   const addElement = (type: InputType) => {
@@ -430,7 +461,9 @@ export const FormBuilderPage = () => {
     setActiveElementId(
       remaining[Math.min(index, remaining.length - 1)]?.id ?? null
     );
-    setPanelOpen(false);
+    if (editingElementId === elementId) {
+      setEditingElementId(null);
+    }
     setDeleteTargetId(null);
   };
 
@@ -456,6 +489,7 @@ export const FormBuilderPage = () => {
     reset(undoSnapshot.form, { keepDefaultValues: true });
     replace(undoSnapshot.form.elements);
     setActiveElementId(undoSnapshot.form.elements[0]?.id ?? null);
+    setEditingElementId(null);
     setUndoSnapshot(null);
     setNotice("Change undone.");
   };
@@ -505,38 +539,9 @@ export const FormBuilderPage = () => {
     reset(assistantProposal, { keepDefaultValues: true });
     replace(assistantProposal.elements);
     setActiveElementId(assistantProposal.elements[0]?.id ?? null);
+    setEditingElementId(null);
     setAssistantProposal(null);
     setProposalReviewOpen(false);
-  };
-
-  const closeOverlayPanel = (commitQuestion: boolean) => {
-    if (
-      mobile &&
-      panelTab === "settings" &&
-      mobileQuestionBaseline &&
-      activeElement &&
-      !commitQuestion &&
-      JSON.stringify(mobileQuestionBaseline) !== JSON.stringify(activeElement)
-    ) {
-      setDiscardQuestionOpen(true);
-      return;
-    }
-
-    setPanelOpen(false);
-    setMobileQuestionBaseline(null);
-  };
-
-  const discardMobileQuestionChanges = () => {
-    if (mobileQuestionBaseline && activeIndex >= 0) {
-      setValue(
-        `elements.${activeIndex}`,
-        structuredClone(mobileQuestionBaseline),
-        { shouldDirty: true }
-      );
-    }
-    setDiscardQuestionOpen(false);
-    setPanelOpen(false);
-    setMobileQuestionBaseline(null);
   };
 
   const copyPublicLink = async () => {
@@ -567,142 +572,6 @@ export const FormBuilderPage = () => {
   const proposalSummary = assistantProposal
     ? summarizeFormChanges(getValues(), assistantProposal)
     : [];
-
-  const renderContextPanel = (overlay: boolean) => (
-    <Box
-      sx={{
-        height: "100%",
-        minHeight: 0,
-        display: "flex",
-        flexDirection: "column",
-        bgcolor: "background.paper",
-      }}
-    >
-      {overlay && (
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1}
-          sx={{
-            minHeight: 56,
-            px: 1,
-            borderBottom: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <IconButton
-            aria-label={
-              panelTab === "settings" ? "Back to questions" : "Close assistant"
-            }
-            onClick={() => closeOverlayPanel(false)}
-          >
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography component="h2" variant="h4" sx={{ flex: 1 }} noWrap>
-            {panelTab === "assistant"
-              ? "Assistant"
-              : activeIndex >= 0
-                ? `Question ${activeIndex + 1}`
-                : "Question settings"}
-          </Typography>
-          {panelTab === "settings" && (
-            <Button onClick={() => closeOverlayPanel(true)}>Done</Button>
-          )}
-        </Stack>
-      )}
-
-      <Tabs
-        value={panelTab}
-        onChange={(_, value: PanelTab) => setPanelTab(value)}
-        aria-label="Editor tools"
-        variant="fullWidth"
-        sx={{ borderBottom: "1px solid", borderColor: "divider", flex: "0 0 auto" }}
-      >
-        <Tab value="settings" label="Settings" />
-        <Tab
-          value="assistant"
-          label="Assistant"
-          icon={<AutoAwesomeOutlinedIcon fontSize="small" />}
-          iconPosition="start"
-        />
-      </Tabs>
-
-      {panelTab === "settings" ? (
-        <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", p: 2.5 }}>
-          {activeIndex >= 0 && activeElement ? (
-            <Stack spacing={3}>
-              <Box>
-                <Typography component="h2" variant="h3">
-                  Edit question
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  Changes stay in this draft until you save or publish.
-                </Typography>
-              </Box>
-              <FormElementEditor
-                index={activeIndex}
-                issues={issuesByElement.get(activeElement.id) ?? []}
-              />
-              <Divider />
-              <Box>
-                <Typography variant="subtitle2" color="error.main">
-                  Remove question
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
-                  You can undo a deletion for eight seconds.
-                </Typography>
-                <Button
-                  type="button"
-                  variant="outlined"
-                  color="error"
-                  startIcon={<DeleteOutlineIcon />}
-                  onClick={() => requestDeleteElement(activeElement.id)}
-                >
-                  Delete question
-                </Button>
-              </Box>
-            </Stack>
-          ) : (
-            <Stack spacing={1.5} alignItems="flex-start" sx={{ py: 3 }}>
-              <EditOutlinedIcon color="primary" />
-              <Typography component="h2" variant="h3">
-                Select a question
-              </Typography>
-              <Typography color="text.secondary">
-                Choose a question from the outline or form canvas to edit its
-                wording, type, choices, and required state.
-              </Typography>
-              <Button
-                type="button"
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={(event) => setAddMenuAnchor(event.currentTarget)}
-              >
-                Add question
-              </Button>
-            </Stack>
-          )}
-        </Box>
-      ) : (
-        <Box sx={{ flex: 1, minHeight: 0 }}>
-          <ChatPanel
-            key={chatResetKey}
-            onClose={() => setPanelOpen(false)}
-            onReset={handleResetChat}
-            adapter={chatAdapter}
-            sessionKey={sessionKey}
-            formTitle={form.title}
-            status={isEditMode ? "Live" : "Draft"}
-            proposalSummary={proposalSummary}
-            onReviewProposal={() => setProposalReviewOpen(true)}
-            onApplyProposal={applyAssistantProposal}
-            onDismissProposal={() => setAssistantProposal(null)}
-            showClose={false}
-          />
-        </Box>
-      )}
-    </Box>
-  );
 
   if (isEditMode && formQuery.isLoading) {
     return (
@@ -760,11 +629,11 @@ export const FormBuilderPage = () => {
         sx={{
           width: "100%",
           minWidth: 0,
-          pb: { xs: "152px", md: 0 },
+          pb: { xs: "88px", md: 0 },
           "& :is(a, button, input, textarea, select, [tabindex]):not([tabindex='-1'])":
             {
-              scrollMarginBlockStart: { xs: "136px", md: "96px" },
-              scrollMarginBlockEnd: { xs: "168px", md: "24px" },
+              scrollMarginBlockStart: { xs: "132px", md: "96px" },
+              scrollMarginBlockEnd: { xs: "120px", md: "24px" },
             },
         }}
       >
@@ -773,84 +642,165 @@ export const FormBuilderPage = () => {
           component="header"
           sx={{
             position: "sticky",
-            top: { xs: 64, md: 72 },
+            top: { xs: 56, md: 58 },
             zIndex: 5,
+            border: 0,
             borderRadius: 0,
-            boxShadow: "0 1px 2px rgba(23, 32, 51, 0.08)",
-            mb: 3,
+            bgcolor: "rgba(30,22,80,0.92)",
+            backdropFilter: "blur(18px)",
+            color: "common.white",
+            boxShadow: "0 2px 16px rgba(30,22,80,0.24)",
+            overflow: "hidden",
+            mb: 0,
           }}
         >
           <Stack
             direction="row"
             alignItems="center"
-            spacing={1}
-            sx={{ minHeight: 64, px: { xs: 1, sm: 2 } }}
+            spacing={0.75}
+            sx={{
+              minHeight: { xs: 58, md: 44 },
+              px: { xs: 0.75, sm: 1.5 },
+            }}
           >
             <Tooltip title="Back to forms">
               <IconButton
                 component={RouterLink}
                 to="/"
                 aria-label="Back to forms"
+                sx={{
+                  width: { xs: 44, md: 30 },
+                  height: { xs: 44, md: 30 },
+                  color: "common.white",
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  bgcolor: "rgba(255,255,255,0.08)",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
+                }}
               >
-                <ArrowBackIcon />
+                <ArrowBackIcon sx={{ fontSize: 17 }} />
               </IconButton>
             </Tooltip>
 
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography component="h1" variant="h4" noWrap tabIndex={-1}>
+              <Typography
+                component="h1"
+                noWrap
+                tabIndex={-1}
+                sx={{
+                  color: "#F5F3FF",
+                  fontSize: { xs: "0.82rem", md: "0.77rem" },
+                  lineHeight: 1.35,
+                  fontWeight: 650,
+                  letterSpacing: "-0.01em",
+                }}
+              >
                 {form.title.trim() ||
                   (isEditMode ? "Edit form" : "Create a form")}
               </Typography>
-              <Stack
-                direction="row"
-                alignItems="center"
-                spacing={0.75}
-                aria-live="polite"
-              >
-                {saveMutation.isError ? (
-                  <ErrorOutlineIcon color="error" sx={{ fontSize: 16 }} />
-                ) : !isDirty && isEditMode ? (
-                  <CheckCircleOutlineIcon color="success" sx={{ fontSize: 16 }} />
-                ) : null}
-                <Typography
-                  variant="caption"
-                  color={saveMutation.isError ? "error.main" : "text.secondary"}
-                  noWrap
-                >
-                  {saveStatus}
-                </Typography>
-              </Stack>
             </Box>
 
-            <StatusChip status={isEditMode ? "Live" : "Draft"} />
+            <Box
+              sx={{
+                display: assistantMode
+                  ? "none"
+                  : { xs: "none", sm: "block" },
+              }}
+            >
+              <StatusChip status={isEditMode ? "Live" : "Draft"} />
+            </Box>
+
+            <Typography
+              sx={{
+                display: assistantMode
+                  ? "none"
+                  : { xs: "none", md: "block" },
+                px: 0.75,
+                fontFamily: '"JetBrains Mono", monospace',
+                fontSize: "0.55rem",
+                fontWeight: 600,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.76)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {elements.length} {elements.length === 1 ? "question" : "questions"}
+            </Typography>
+
+            <Typography
+              aria-live="polite"
+              sx={{
+                display: assistantMode
+                  ? "none"
+                  : { xs: "none", lg: "block" },
+                px: 0.75,
+                color: saveMutation.isError
+                  ? "#FFB4AD"
+                  : "rgba(255,255,255,0.7)",
+                fontSize: "0.66rem",
+                fontWeight: 500,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {saveStatus}
+            </Typography>
+
+            <Button
+              type="button"
+              variant="text"
+              onClick={(event) => setToolsMenuAnchor(event.currentTarget)}
+              aria-haspopup="menu"
+              aria-expanded={toolsMenuAnchor ? "true" : undefined}
+              sx={{
+                display: assistantMode
+                  ? "inline-flex"
+                  : { xs: "inline-flex", md: "none" },
+                minWidth: 0,
+                minHeight: { xs: 44, md: 32 },
+                px: 1.25,
+                fontSize: "0.72rem",
+                color: "rgba(255,255,255,0.86)",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.08)" },
+              }}
+            >
+              Tools
+            </Button>
 
             <Stack
               direction="row"
-              spacing={1}
-              sx={{ display: { xs: "none", md: "flex" } }}
+              spacing={0.75}
+              sx={{
+                display: assistantMode
+                  ? "none"
+                  : { xs: "none", md: "flex" },
+              }}
             >
               <Button
                 type="button"
-                variant="outlined"
-                startIcon={<PreviewOutlinedIcon />}
+                variant="text"
                 onClick={() => setPreviewOpen(true)}
+                sx={{
+                  minHeight: 32,
+                  px: 1.25,
+                  fontSize: "0.72rem",
+                  color: "rgba(255,255,255,0.82)",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.08)" },
+                }}
               >
                 Preview
-              </Button>
-              <Button
-                type="button"
-                variant="outlined"
-                startIcon={<AutoAwesomeOutlinedIcon />}
-                onClick={openAssistant}
-              >
-                Assistant
               </Button>
               {isEditMode && (
                 <Button
                   type="button"
-                  variant="outlined"
-                  startIcon={<ShareOutlinedIcon />}
+                  variant="text"
                   onClick={() => setShareOpen(true)}
+                  sx={{
+                    minHeight: 32,
+                    px: 1.25,
+                    fontSize: "0.72rem",
+                    color: "rgba(255,255,255,0.82)",
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.08)" },
+                  }}
                 >
                   Share
                 </Button>
@@ -861,14 +811,20 @@ export const FormBuilderPage = () => {
                 startIcon={
                   saveMutation.isPending ? (
                     <CircularProgress size={17} color="inherit" />
-                  ) : isEditMode ? (
-                    <SaveOutlinedIcon />
-                  ) : (
-                    <PublishOutlinedIcon />
-                  )
+                  ) : undefined
                 }
                 disabled={saveMutation.isPending || (isEditMode && !isDirty)}
                 onClick={() => void validateAndSave()}
+                sx={{
+                  minHeight: 32,
+                  px: 1.4,
+                  fontSize: "0.72rem",
+                  bgcolor: "primary.main",
+                  "&.Mui-disabled": {
+                    bgcolor: "rgba(255,255,255,0.12)",
+                    color: "rgba(255,255,255,0.46)",
+                  },
+                }}
               >
                 {saveMutation.isPending
                   ? isEditMode
@@ -879,6 +835,39 @@ export const FormBuilderPage = () => {
                     : "Publish"}
               </Button>
             </Stack>
+
+            {assistantMode && (
+              <Button
+                type="button"
+                variant="contained"
+                startIcon={
+                  saveMutation.isPending ? (
+                    <CircularProgress size={17} color="inherit" />
+                  ) : undefined
+                }
+                disabled={saveMutation.isPending || (isEditMode && !isDirty)}
+                onClick={() => void validateAndSave()}
+                sx={{
+                  display: { xs: "none", lg: "inline-flex" },
+                  minHeight: 32,
+                  px: 1.4,
+                  fontSize: "0.72rem",
+                  bgcolor: "primary.main",
+                  "&.Mui-disabled": {
+                    bgcolor: "rgba(255,255,255,0.12)",
+                    color: "rgba(255,255,255,0.46)",
+                  },
+                }}
+              >
+                {saveMutation.isPending
+                  ? isEditMode
+                    ? "Saving…"
+                    : "Publishing…"
+                  : isEditMode
+                    ? "Save"
+                    : "Publish"}
+              </Button>
+            )}
           </Stack>
         </Card>
 
@@ -931,43 +920,76 @@ export const FormBuilderPage = () => {
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: {
-              xs: "minmax(0, 1fr)",
-              lg: "200px minmax(0, 1fr)",
-              xl: "224px minmax(560px, 1fr) 336px",
-            },
-            gap: { xs: 2, lg: 3 },
+            gridTemplateColumns: "minmax(0, 580px)",
+            justifyContent: "center",
             alignItems: "start",
+            minHeight: {
+              xs: "calc(100vh - 58px)",
+              md: "calc(100vh - 102px)",
+            },
+            paddingInlineStart: { xs: 1.5, sm: 2.5, md: 4 },
+            paddingInlineEnd: assistantMode
+              ? { xs: 1.5, sm: 2.5, md: 4 }
+              : { xs: "60px", sm: 2.5, md: 4 },
+            py: { xs: 2, md: 4 },
           }}
         >
           <Card
             component="nav"
             aria-label="Form questions"
             sx={{
-              display: { xs: "none", lg: "block" },
-              position: "sticky",
-              top: 160,
-              maxHeight: "calc(100vh - 184px)",
+              display: assistantMode
+                ? "none"
+                : { xs: "none", lg: "block" },
+              position: "fixed",
+              insetInlineStart: 16,
+              top: 118,
+              zIndex: 3,
+              width: 192,
+              maxHeight: "calc(100vh - 136px)",
               overflowY: "auto",
-              p: 1.5,
+              p: "14px 10px",
+              border: "1px solid rgba(255,255,255,0.84)",
+              borderRadius: "14px",
+              bgcolor: "rgba(255,255,255,0.64)",
+              backdropFilter: "blur(20px)",
+              boxShadow:
+                "0 2px 20px rgba(91,80,247,0.08), 0 1px 4px rgba(30,22,80,0.05)",
             }}
           >
-            <Typography variant="subtitle2" sx={{ px: 1, py: 0.75 }}>
-              Questions
+            <Typography
+              sx={{
+                display: "block",
+                px: 0.75,
+                pb: 1.25,
+                fontFamily: '"JetBrains Mono", monospace',
+                fontSize: "0.53rem",
+                fontWeight: 600,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "text.secondary",
+              }}
+            >
+              Questions · {String(elements.length).padStart(2, "0")}
             </Typography>
             {elements.length > 0 ? (
               <Box component="ol" sx={{ listStyle: "none", p: 0, m: 0 }}>
                 {elements.map((element, index) => {
                   const active = element.id === resolvedActiveElementId;
                   const invalid = issuesByElement.has(element.id);
+
                   return (
                     <Box component="li" key={element.id}>
                       <ListItemButton
                         data-question-outline-button="true"
                         selected={active}
-                        onClick={() => openQuestionEditor(element.id)}
+                        aria-current={active ? "location" : undefined}
+                        onClick={() => scrollToQuestion(element.id)}
                         onKeyDown={(event) => {
-                          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+                          if (
+                            event.key !== "ArrowDown" &&
+                            event.key !== "ArrowUp"
+                          ) {
                             return;
                           }
                           event.preventDefault();
@@ -984,26 +1006,40 @@ export const FormBuilderPage = () => {
                               '[data-question-outline-button="true"]'
                             )[nextIndex];
 
-                          openQuestionEditor(nextId);
+                          scrollToQuestion(nextId);
                           nextButton?.focus();
                         }}
                         sx={{
-                          minHeight: 44,
-                          borderRadius: 1,
-                          borderInlineStart: "2px solid",
-                          borderInlineStartColor: active
-                            ? "primary.main"
-                            : "transparent",
+                          minHeight: 36,
+                          mb: 0.25,
+                          px: 0.9,
+                          py: 0.6,
+                          gap: 0.75,
+                          border: "1px solid transparent",
+                          borderRadius: "9px",
+                          "&.Mui-selected": {
+                            bgcolor: "rgba(91,80,247,0.12)",
+                            borderColor: "#CCC8F8",
+                          },
+                          "&.Mui-selected:hover": {
+                            bgcolor: "rgba(91,80,247,0.16)",
+                          },
                         }}
                       >
                         <Typography
                           aria-hidden="true"
                           sx={{
-                            width: 32,
-                            flex: "0 0 32px",
-                            fontFamily: '"IBM Plex Mono", monospace',
-                            fontSize: "0.75rem",
-                            color: invalid ? "error.main" : "text.secondary",
+                            width: 19,
+                            flex: "0 0 19px",
+                            fontFamily: '"JetBrains Mono", monospace',
+                            fontSize: "0.55rem",
+                            fontWeight: 600,
+                            letterSpacing: "0.04em",
+                            color: invalid
+                              ? "error.main"
+                              : active
+                                ? "primary.main"
+                                : "text.secondary",
                           }}
                         >
                           {String(index + 1).padStart(2, "0")}
@@ -1015,39 +1051,54 @@ export const FormBuilderPage = () => {
                               noWrap: true,
                               title:
                                 element.title.trim() || "Untitled question",
-                              variant: "body2",
-                              fontWeight: active ? 700 : 500,
+                              sx: {
+                                fontSize: "0.72rem",
+                                lineHeight: 1.35,
+                                fontWeight: active ? 650 : 450,
+                                color: active
+                                  ? "text.primary"
+                                  : "text.secondary",
+                              },
                             },
                           }}
+                          sx={{ minWidth: 0, my: 0 }}
                         />
-                        {invalid && (
+                        {invalid ? (
                           <ReportProblemOutlinedIcon
                             aria-label="Needs attention"
                             color="error"
-                            sx={{ fontSize: 18, ml: 0.5 }}
+                            sx={{ fontSize: 14 }}
                           />
-                        )}
+                        ) : active ? (
+                          <Box
+                            aria-hidden="true"
+                            sx={{
+                              width: 5,
+                              height: 5,
+                              flex: "0 0 5px",
+                              borderRadius: "50%",
+                              bgcolor: "primary.main",
+                            }}
+                          />
+                        ) : null}
                       </ListItemButton>
                     </Box>
                   );
                 })}
               </Box>
             ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ px: 1, py: 2 }}>
-                Add your first question.
+              <Typography
+                sx={{
+                  px: 0.75,
+                  py: 0.5,
+                  color: "text.secondary",
+                  fontSize: "0.72rem",
+                  lineHeight: 1.45,
+                }}
+              >
+                Questions will appear here.
               </Typography>
             )}
-            <Button
-              id="add-question-button"
-              type="button"
-              variant="text"
-              startIcon={<AddIcon />}
-              onClick={(event) => setAddMenuAnchor(event.currentTarget)}
-              fullWidth
-              sx={{ justifyContent: "flex-start", mt: 1 }}
-            >
-              Add question
-            </Button>
           </Card>
 
           <Box
@@ -1059,272 +1110,358 @@ export const FormBuilderPage = () => {
               void validateAndSave();
             }}
             sx={{
+              width: "100%",
+              maxWidth: 580,
               minWidth: 0,
-              pb: { xs: 2, md: 4 },
+              justifySelf: "center",
+              pb: { xs: 2, md: 6 },
             }}
           >
-            <Card sx={{ p: { xs: 2, md: 3 }, mb: 3 }}>
-              <Stack spacing={2.5}>
-                <Box>
-                  <Typography component="h2" variant="h2">
-                    Form details
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                    Give respondents a clear title and a short explanation.
-                  </Typography>
-                </Box>
-                <Controller
-                  name="title"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      id="form-title"
-                      label="Form title"
-                      placeholder="Enter a form title"
-                      error={validationIssues.some(
-                        (issue) => issue.id === "form-title"
-                      )}
-                      autoComplete="off"
-                    />
-                  )}
-                />
-                <Controller
-                  name="description"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      label="Description (optional)"
-                      placeholder="Explain what this form is for"
-                      multiline
-                      minRows={3}
-                    />
-                  )}
-                />
-              </Stack>
-            </Card>
-
-            {mobile ? (
-              <Stack spacing={1.5}>
-                {elements.length === 0 ? (
-                  <Card sx={{ p: 3, textAlign: "center" }}>
-                    <Typography component="h2" variant="h3">
-                      Add your first question
-                    </Typography>
-                    <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
-                      Start with a short answer, multiple choice, or file upload.
-                    </Typography>
-                    <Button
-                      type="button"
-                      variant="contained"
-                      startIcon={<AddIcon />}
-                      onClick={(event) => setAddMenuAnchor(event.currentTarget)}
-                    >
-                      Add question
-                    </Button>
-                  </Card>
-                ) : (
-                  elements.map((element, index) => (
-                    <Card key={element.id} sx={{ p: 2 }}>
-                      <Stack direction="row" spacing={1.5} alignItems="center">
-                        <Box
-                          aria-hidden="true"
-                          sx={{
-                            width: 32,
-                            height: 32,
-                            flex: "0 0 auto",
-                            display: "grid",
-                            placeItems: "center",
-                            borderRadius: "50%",
-                            border: "2px solid",
-                            borderColor: issuesByElement.has(element.id)
-                              ? "error.main"
-                              : "primary.main",
-                            color: issuesByElement.has(element.id)
-                              ? "error.main"
-                              : "primary.main",
-                            fontFamily: '"IBM Plex Mono", monospace',
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          {issuesByElement.has(element.id) ? (
-                            <ReportProblemOutlinedIcon sx={{ fontSize: 17 }} />
-                          ) : (
-                            index + 1
-                          )}
-                        </Box>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography fontWeight={700} sx={{ overflowWrap: "anywhere" }}>
-                            {element.title.trim() || "Untitled question"}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {inputTypeLabel(element.type)}
-                            {element.required ? " · Required" : ""}
-                          </Typography>
-                        </Box>
-                        <Button
-                          type="button"
-                          variant="text"
-                          onClick={() => openQuestionEditor(element.id)}
-                        >
-                          Edit
-                        </Button>
-                      </Stack>
-                    </Card>
-                  ))
-                )}
-              </Stack>
-            ) : (
-              <Stack spacing={0}>
-                {elements.map((element, index) => (
-                  <FormElementBuilder
-                    key={element.id}
-                    index={index}
-                    isActive={resolvedActiveElementId === element.id}
-                    issues={issuesByElement.get(element.id)}
-                    onEdit={() => openQuestionEditor(element.id)}
-                    onDuplicate={() => duplicateElement(index)}
-                    onMoveUp={() => moveElement(index, index - 1)}
-                    onMoveDown={() => moveElement(index, index + 1)}
-                    onDelete={() => requestDeleteElement(element.id)}
-                    canMoveUp={index > 0}
-                    canMoveDown={index < elements.length - 1}
-                    isLast={index === elements.length - 1}
-                  />
-                ))}
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: "28px minmax(0, 1fr)",
-                    gap: 2,
-                    mt: elements.length > 0 ? 2 : 0,
-                  }}
-                >
+            <Card
+              sx={{
+                overflow: "hidden",
+                border: "1.5px solid #E0DEFA",
+                borderRadius: "14px",
+                boxShadow: "0 2px 16px rgba(91,80,247,0.06)",
+              }}
+            >
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                spacing={2}
+                sx={{
+                  minHeight: 42,
+                  px: { xs: 2, sm: 2.5 },
+                  py: 1,
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                  bgcolor: "#F7F6FF",
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1.1}>
                   <Box
-                    aria-hidden="true"
+                    component="span"
                     sx={{
-                      width: 32,
-                      height: 32,
-                      ml: "-2px",
-                      display: "grid",
-                      placeItems: "center",
-                      borderRadius: "50%",
-                      border: "1px solid",
-                      borderColor: "border.control",
-                      bgcolor: "background.paper",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      minHeight: 20,
+                      px: 1,
+                      borderRadius: "5px",
+                      bgcolor: "#1E1650",
+                      color: "common.white",
+                      fontFamily: '"JetBrains Mono", monospace',
+                      fontSize: "0.52rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Form
+                  </Box>
+                  <Typography
+                    sx={{
+                      fontFamily: '"JetBrains Mono", monospace',
+                      fontSize: "0.54rem",
+                      fontWeight: 600,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
                       color: "primary.main",
                     }}
                   >
-                    <AddIcon fontSize="small" />
-                  </Box>
-                  <Button
-                    id="add-question-button"
-                    type="button"
-                    variant="outlined"
-                    startIcon={<AddIcon />}
-                    onClick={(event) => setAddMenuAnchor(event.currentTarget)}
-                    sx={{ justifySelf: "start" }}
-                  >
-                    Add question
-                  </Button>
-                </Box>
+                    Form opening
+                  </Typography>
+                </Stack>
+                <Typography
+                  sx={{
+                    fontFamily: '"JetBrains Mono", monospace',
+                    fontSize: "0.53rem",
+                    fontWeight: 500,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "text.secondary",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {String(elements.length).padStart(2, "0")}{" "}
+                  {elements.length === 1 ? "question" : "questions"}
+                </Typography>
               </Stack>
-            )}
-          </Box>
 
-          {wide && (
-            <Card
-              component="aside"
-              aria-label="Question settings and assistant"
+              <Stack
+                spacing={2.25}
+                sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2.5, sm: 3 } }}
+              >
+                <Box>
+                  <Typography
+                    component="h2"
+                    sx={{
+                      fontFamily: '"JetBrains Mono", monospace',
+                      fontSize: "0.62rem",
+                      lineHeight: 1.4,
+                      fontWeight: 600,
+                      letterSpacing: "0.11em",
+                      textTransform: "uppercase",
+                      color: "text.secondary",
+                    }}
+                  >
+                    Set the context
+                  </Typography>
+                  <Typography
+                    sx={{
+                      mt: 0.45,
+                      maxWidth: "56ch",
+                      color: "text.secondary",
+                      fontSize: "0.82rem",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Give respondents a clear reason to complete this form.
+                  </Typography>
+                </Box>
+
+                <Stack spacing={0.65}>
+                  <Typography
+                    component="label"
+                    htmlFor="form-title"
+                    sx={{
+                      color: "text.primary",
+                      fontSize: "0.72rem",
+                      lineHeight: 1.4,
+                      fontWeight: 650,
+                    }}
+                  >
+                    Form title
+                  </Typography>
+                  <Controller
+                    name="title"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        id="form-title"
+                        size="small"
+                        placeholder="Enter a form title"
+                        error={validationIssues.some(
+                          (issue) => issue.id === "form-title"
+                        )}
+                        autoComplete="off"
+                        sx={{
+                          "& .MuiOutlinedInput-root": {
+                            minHeight: 46,
+                            borderRadius: "9px",
+                          },
+                          "& .MuiInputBase-input": {
+                            py: 1.15,
+                            fontSize: "0.94rem",
+                            lineHeight: 1.35,
+                            fontWeight: 650,
+                            letterSpacing: "-0.012em",
+                          },
+                        }}
+                      />
+                    )}
+                  />
+                </Stack>
+
+                <Stack spacing={0.65}>
+                  <Typography
+                    component="label"
+                    htmlFor="form-description"
+                    sx={{
+                      color: "text.primary",
+                      fontSize: "0.72rem",
+                      lineHeight: 1.4,
+                      fontWeight: 650,
+                    }}
+                  >
+                    Description{" "}
+                    <Box
+                      component="span"
+                      sx={{ color: "text.secondary", fontWeight: 400 }}
+                    >
+                      (optional)
+                    </Box>
+                  </Typography>
+                  <Controller
+                    name="description"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        id="form-description"
+                        size="small"
+                        placeholder="Explain what this form is for"
+                        multiline
+                        minRows={3}
+                        sx={{
+                          "& .MuiOutlinedInput-root": {
+                            alignItems: "flex-start",
+                            borderRadius: "9px",
+                          },
+                          "& .MuiInputBase-inputMultiline": {
+                            fontSize: "0.84rem",
+                            lineHeight: 1.55,
+                          },
+                        }}
+                      />
+                    )}
+                  />
+                </Stack>
+              </Stack>
+            </Card>
+
+            <Typography
+              id="question-list-title"
+              component="h2"
+              className="sr-only"
+            >
+              Questions
+            </Typography>
+
+            <Box
+              component="section"
+              aria-labelledby="question-list-title"
               sx={{
-                position: "sticky",
-                top: 160,
-                height: "calc(100vh - 184px)",
-                minHeight: 520,
-                overflow: "hidden",
-                boxShadow: "0 8px 24px rgba(23, 32, 51, 0.10)",
+                position: "relative",
+                mt: 3,
+                "&::before": elements.length
+                  ? {
+                      content: '""',
+                      position: "absolute",
+                      zIndex: 0,
+                      display: { xs: "none", sm: "block" },
+                      insetInlineStart: 14,
+                      insetBlockStart: 0,
+                      insetBlockEnd: 38,
+                      width: "1.5px",
+                      borderRadius: 999,
+                      background:
+                        "linear-gradient(to bottom, #CCC8F8 82%, rgba(204,200,248,0))",
+                    }
+                  : undefined,
               }}
             >
-              {renderContextPanel(false)}
-            </Card>
-          )}
+              {elements.map((element, index) => (
+                <FormElementBuilder
+                  key={element.id}
+                  index={index}
+                  isActive={resolvedActiveElementId === element.id}
+                  isEditing={editingElementId === element.id}
+                  issues={issuesByElement.get(element.id)}
+                  cardRef={(node) => registerQuestionCard(element.id, node)}
+                  onActivate={() => setActiveElementId(element.id)}
+                  onEdit={() => openQuestionEditor(element.id)}
+                  onFinishEditing={() => setEditingElementId(null)}
+                  onDuplicate={() => duplicateElement(index)}
+                  onMoveUp={() => moveElement(index, index - 1)}
+                  onMoveDown={() => moveElement(index, index + 1)}
+                  onDelete={() => requestDeleteElement(element.id)}
+                  canMoveUp={index > 0}
+                  canMoveDown={index < elements.length - 1}
+                />
+              ))}
+
+              <Box sx={{ ml: { xs: 0, sm: "42px" } }}>
+                <Button
+                  id="add-question-button"
+                  type="button"
+                  variant="text"
+                  fullWidth
+                  aria-haspopup="menu"
+                  aria-expanded={addMenuAnchor ? "true" : undefined}
+                  onClick={(event) => setAddMenuAnchor(event.currentTarget)}
+                  sx={{
+                    minHeight: 76,
+                    justifyContent: "flex-start",
+                    px: { xs: 2, sm: 2.5 },
+                    py: 1.75,
+                    border: "1.5px dashed #BDB8F2",
+                    borderRadius: "13px",
+                    bgcolor: "rgba(255,255,255,0.56)",
+                    color: "text.primary",
+                    textAlign: "start",
+                    backdropFilter: "blur(8px)",
+                    "&:hover": {
+                      borderColor: "primary.main",
+                      bgcolor: "rgba(91,80,247,0.08)",
+                    },
+                  }}
+                >
+                  <Box>
+                    <Typography
+                      component="span"
+                      sx={{
+                        display: "block",
+                        color: "primary.main",
+                        fontSize: "0.84rem",
+                        lineHeight: 1.35,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Add question
+                    </Typography>
+                    <Typography
+                      component="span"
+                      sx={{
+                        display: "block",
+                        mt: 0.25,
+                        color: "text.secondary",
+                        fontSize: "0.72rem",
+                        lineHeight: 1.4,
+                        fontWeight: 450,
+                      }}
+                    >
+                      {elements.length === 0
+                        ? "Choose the response type for your first question"
+                        : "Short answer, multiple choice, or file upload"}
+                    </Typography>
+                  </Box>
+                </Button>
+              </Box>
+            </Box>
+          </Box>
         </Box>
 
-        <Card
-          id="mobile-editor-actions"
-          sx={{
-            display: { xs: "block", md: "none" },
-            position: "fixed",
-            insetInline: 0,
-            bottom: 0,
-            zIndex: (muiTheme) => muiTheme.zIndex.appBar + 2,
-            p: 1.5,
-            pb: "calc(12px + env(safe-area-inset-bottom))",
-            borderRadius: 0,
-            borderInline: 0,
-            borderBottom: 0,
-            boxShadow: "0 -4px 18px rgba(23, 32, 51, 0.10)",
-          }}
-        >
-          <Stack spacing={1}>
-            <Stack direction="row" spacing={1}>
-              <Button
-                type="button"
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={(event) => setAddMenuAnchor(event.currentTarget)}
-                sx={{ flex: 1, minWidth: 0 }}
-              >
-                Add question
-              </Button>
-              <Button
-                type="button"
-                variant="outlined"
-                startIcon={<PreviewOutlinedIcon />}
-                onClick={() => setPreviewOpen(true)}
-                sx={{ flex: 1, minWidth: 0 }}
-              >
-                Preview
-              </Button>
-            </Stack>
-            <Stack direction="row" spacing={1}>
-              <Button
-                type="button"
-                variant="outlined"
-                startIcon={<AutoAwesomeOutlinedIcon />}
-                onClick={openAssistant}
-                sx={{ flex: 1, minWidth: 0 }}
-              >
-                Assistant
-              </Button>
-              <Button
-                type="button"
-                variant="contained"
-                startIcon={
-                  saveMutation.isPending ? (
-                    <CircularProgress size={17} color="inherit" />
-                  ) : isEditMode ? (
-                    <SaveOutlinedIcon />
-                  ) : (
-                    <PublishOutlinedIcon />
-                  )
-                }
-                disabled={saveMutation.isPending || (isEditMode && !isDirty)}
-                onClick={() => void validateAndSave()}
-                sx={{ flex: 1, minWidth: 0 }}
-              >
-                {saveMutation.isPending
-                  ? isEditMode
-                    ? "Saving…"
-                    : "Publishing…"
-                  : isEditMode
-                    ? "Save changes"
-                    : "Publish"}
-              </Button>
-            </Stack>
-          </Stack>
-        </Card>
+        {mobile && (
+          <Card
+            id="mobile-editor-actions"
+            sx={{
+              position: "fixed",
+              insetInline: 0,
+              bottom: 0,
+              zIndex: (muiTheme) => muiTheme.zIndex.appBar + 2,
+              p: 1.5,
+              pb: "calc(12px + env(safe-area-inset-bottom))",
+              borderRadius: 0,
+              borderInline: 0,
+              borderBottom: 0,
+              boxShadow: "0 -8px 28px rgba(30, 22, 80, 0.14)",
+            }}
+          >
+            <Button
+              type="button"
+              variant="contained"
+              fullWidth
+              startIcon={
+                saveMutation.isPending ? (
+                  <CircularProgress size={17} color="inherit" />
+                ) : undefined
+              }
+              disabled={saveMutation.isPending || (isEditMode && !isDirty)}
+              onClick={() => void validateAndSave()}
+              sx={{ minHeight: 52 }}
+            >
+              {saveMutation.isPending
+                ? isEditMode
+                  ? "Saving…"
+                  : "Publishing…"
+                : isEditMode
+                  ? "Save changes"
+                  : "Publish"}
+            </Button>
+          </Card>
+        )}
 
         <Menu
           anchorEl={addMenuAnchor}
@@ -1352,23 +1489,50 @@ export const FormBuilderPage = () => {
           </MenuItem>
         </Menu>
 
-        {!wide && (
-          <Drawer
-            anchor="right"
-            open={panelOpen}
-            onClose={() => closeOverlayPanel(false)}
-            slotProps={{
-              paper: {
-                sx: {
-                  width: mobile ? "100%" : 420,
-                  maxWidth: "100%",
-                },
-              },
+        <Menu
+          anchorEl={toolsMenuAnchor}
+          open={Boolean(toolsMenuAnchor)}
+          onClose={() => setToolsMenuAnchor(null)}
+          slotProps={{ paper: { sx: { minWidth: 196 } } }}
+        >
+          <MenuItem
+            onClick={() => {
+              setToolsMenuAnchor(null);
+              setPreviewOpen(true);
             }}
           >
-            {renderContextPanel(true)}
-          </Drawer>
-        )}
+            Preview form
+          </MenuItem>
+          {isEditMode && (
+            <MenuItem
+              onClick={() => {
+                setToolsMenuAnchor(null);
+                setShareOpen(true);
+              }}
+            >
+              Share form
+            </MenuItem>
+          )}
+        </Menu>
+
+        {chatDock.isOpen &&
+          chatDock.portalNode &&
+          createPortal(
+            <ChatPanel
+              key={chatResetKey}
+              onClose={chatDock.close}
+              onReset={handleResetChat}
+              adapter={chatAdapter}
+              sessionKey={sessionKey}
+              formTitle={form.title}
+              status={isEditMode ? "Live" : "Draft"}
+              proposalSummary={proposalSummary}
+              onReviewProposal={() => setProposalReviewOpen(true)}
+              onApplyProposal={applyAssistantProposal}
+              onDismissProposal={() => setAssistantProposal(null)}
+            />,
+            chatDock.portalNode
+          )}
 
         <Dialog
           open={previewOpen}
@@ -1583,41 +1747,6 @@ export const FormBuilderPage = () => {
               }}
             >
               Delete question
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        <Dialog
-          open={discardQuestionOpen}
-          onClose={() => setDiscardQuestionOpen(false)}
-          fullWidth
-          maxWidth="sm"
-          slotProps={{
-            transition: {
-              onEntered: () => keepEditingButtonRef.current?.focus(),
-            },
-          }}
-        >
-          <DialogTitle>Discard question changes?</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Changes made since you opened this question will be removed.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              ref={keepEditingButtonRef}
-              autoFocus
-              onClick={() => setDiscardQuestionOpen(false)}
-            >
-              Keep editing
-            </Button>
-            <Button
-              variant="contained"
-              color="error"
-              onClick={discardMobileQuestionChanges}
-            >
-              Discard changes
             </Button>
           </DialogActions>
         </Dialog>

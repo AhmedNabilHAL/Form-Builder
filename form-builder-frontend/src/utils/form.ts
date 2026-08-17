@@ -61,6 +61,43 @@ export const normalizeForm = (form: Form): Form => ({
   })),
 });
 
+export const prepareFormProposal = (
+  proposal: Form,
+  currentForm: Form
+): Form => {
+  const seenIds = new Set<string>();
+
+  return normalizeForm({
+    ...proposal,
+    id: currentForm.id,
+    elements: (proposal.elements ?? []).map((element, index) => {
+      let elementId = element.id?.trim();
+      if (!elementId || seenIds.has(elementId)) {
+        elementId = crypto.randomUUID();
+      }
+      seenIds.add(elementId);
+
+      if (element.type === "select-input") {
+        return {
+          ...element,
+          id: elementId,
+          sortOrder: index,
+          options: element.options.map((option) => ({
+            ...option,
+            id: option.id?.trim() || crypto.randomUUID(),
+          })),
+        };
+      }
+
+      return {
+        ...element,
+        id: elementId,
+        sortOrder: index,
+      };
+    }),
+  });
+};
+
 export const validateForm = (form: Form): FormValidationIssue[] => {
   const issues: FormValidationIssue[] = [];
 
@@ -170,4 +207,3 @@ export const storedFileName = (value: string) => {
   const finalSegment = value.split(/[\\/]/).pop() || value;
   return finalSegment.replace(/^[0-9a-f-]{36}_/i, "");
 };
-

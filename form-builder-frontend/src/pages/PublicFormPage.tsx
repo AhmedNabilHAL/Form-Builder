@@ -205,14 +205,15 @@ export const PublicFormPage = () => {
           mx: "auto",
           p: { xs: "20px 16px", sm: 3, md: 5 },
           borderRadius: { xs: "14px", md: "20px" },
-          boxShadow: "0 1px 2px rgba(23, 32, 51, 0.08)",
+          boxShadow: "0 1px 2px rgba(30, 22, 80, 0.08)",
         }}
       >
         <Typography
           component="h1"
           tabIndex={-1}
           sx={{
-            fontFamily: '"Sora Variable", sans-serif',
+            fontFamily:
+              '"DM Sans Variable", "Segoe UI", sans-serif',
             fontSize: { xs: "1.75rem", md: "2.5rem" },
             lineHeight: { xs: 1.285, md: 1.2 },
             fontWeight: 650,

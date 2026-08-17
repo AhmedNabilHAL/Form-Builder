@@ -312,7 +312,8 @@ export const SubmissionsPage = () => {
             <Typography
               sx={{
                 mt: 0.5,
-                fontFamily: '"Sora Variable", sans-serif',
+                fontFamily:
+                  '"DM Sans Variable", "Segoe UI", sans-serif',
                 fontSize: "1.5rem",
                 fontWeight: 650,
                 fontVariantNumeric: "tabular-nums",
@@ -657,7 +658,7 @@ const ResponseDetail = ({
           <Typography
             sx={{
               mt: 0.5,
-              fontFamily: '"IBM Plex Mono", monospace',
+              fontFamily: '"JetBrains Mono", monospace',
               fontSize: "0.75rem",
               overflowWrap: "anywhere",
             }}
